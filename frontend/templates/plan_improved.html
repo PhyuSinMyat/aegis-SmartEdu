@@ -1,0 +1,1509 @@
+{% extends "base.html" %}
+
+{% block title %}Study Schedule | SmartEdu{% endblock %}
+
+{% block content %}
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   IMPROVED AUTOMATIC STUDY PLAN PAGE
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.plan-dashboard { width: 100%; max-width: none; margin: 0; padding-top: 6px; }
+
+/* ── Hero Section ────────────────────────────────────────────────────── */
+.plan-hero { margin-bottom: 28px; padding: 6px 2px; }
+.plan-hero h1 {
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 10px;
+  color: #111827;
+}
+.plan-hero p {
+  max-width: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* ── Auto-Generation Info Banner ──────────────────────────────────────── */
+.auto-info-banner {
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border: 2px solid #c7d2fe;
+  border-radius: 16px;
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 1.8rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+.auto-info-banner i {
+  color: var(--primary);
+  margin-top: 2px;
+  flex-shrink: 0;
+  font-size: 1.3rem;
+}
+.auto-info-content { flex: 1; }
+.auto-info-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.3rem;
+}
+.auto-info-text {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #475569;
+  line-height: 1.6;
+}
+.next-gen-countdown {
+  display: inline-block;
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+}
+
+/* ── Setup Warning ─────────────────────────────────────────────────────── */
+.setup-warning {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 16px;
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 1.8rem;
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+}
+.setup-warning i { color: #d97706; margin-top: 2px; flex-shrink: 0; }
+.setup-warning p { margin: 0; font-size: 0.92rem; color: #92400e; }
+.setup-warning a { color: var(--primary); font-weight: 600; }
+
+/* ── Card Base ──────────────────────────────────────────────────────────── */
+.dashboard-card {
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 1.4rem;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.card-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* ── TODAY'S FOCUS SECTION ─────────────────────────────────────────────── */
+.today-section {
+  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+  border: 2px solid #c7d2fe;
+}
+
+.today-date {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.today-date small {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 0.5rem;
+}
+
+.next-session-banner {
+  background: rgba(255,255,255,0.9);
+  border: 1px solid #c7d2fe;
+  border-radius: 16px;
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+  display: none;
+}
+
+.next-session-banner.visible { display: block; }
+
+.next-session-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
+}
+
+.next-session-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.next-session-details h3 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 0.3rem;
+  color: #111827;
+}
+
+.next-session-time {
+  font-size: 1rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.next-session-countdown {
+  text-align: right;
+}
+
+.countdown-timer {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.countdown-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.session-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.btn-join {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+.btn-join:hover {
+  background: #3730a3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.btn-reschedule {
+  background: white;
+  color: var(--primary);
+  border: 1px solid #c7d2fe;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+.btn-reschedule:hover {
+  background: #eef2ff;
+  border-color: var(--primary);
+}
+
+/* Today's Session List */
+.today-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.no-sessions {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.session-item {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.18s;
+  cursor: pointer;
+}
+
+.session-item:hover {
+  border-color: #c7d2fe;
+  background: rgba(255,255,255,0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+}
+
+.session-status-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.session-status-icon.completed { color: #22c55e; }
+.session-status-icon.upcoming { color: #3b82f6; }
+.session-status-icon.scheduled { color: #94a3b8; }
+.session-status-icon.starting-soon {
+  color: #f59e0b;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.session-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-time {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 0.2rem;
+}
+
+.session-module {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-topic {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.session-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.session-badge.completed {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.session-badge.starting-soon {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.session-badge.scheduled {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+/* ── WEEKLY PROGRESS TRACKER ───────────────────────────────────────────── */
+.progress-section {
+  background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+  border: 2px solid #86efac;
+}
+
+.progress-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+  font-weight: 600;
+}
+
+.progress-bar-container {
+  background: rgba(255,255,255,0.6);
+  border-radius: 999px;
+  height: 24px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #dcfce7;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.75rem;
+}
+
+.progress-bar-text {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* ── WEEK VIEW (Compact Calendar) ──────────────────────────────────────── */
+.week-view-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.week-selector {
+  background: #f1f5f9;
+  border-radius: 14px;
+  padding: 4px;
+  display: flex;
+  gap: 0;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 1rem;
+}
+
+.week-tab {
+  position: relative;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 10px;
+  transition: color 0.18s, background 0.18s;
+  white-space: nowrap;
+}
+
+.week-tab:hover { color: #111827; }
+
+.week-tab.active {
+  background: #ffffff;
+  color: var(--primary);
+  box-shadow: 0 1px 4px rgba(15,23,42,0.1);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.cal-day {
+  background: rgba(255,255,255,0.82);
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+  transition: all 0.18s;
+}
+
+.cal-day:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15,23,42,0.08);
+}
+
+.cal-day-header {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #4f46e5;
+  background: #eef2ff;
+  border-bottom: 1px solid #c7d2fe;
+}
+
+.cal-day-header.today {
+  color: #166534;
+  background: #dcfce7;
+  border-bottom-color: #86efac;
+}
+
+.cal-sessions-list {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-height: 60px;
+}
+
+.cal-session {
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  cursor: move;
+  transition: all 0.15s;
+}
+
+.cal-session:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.cal-session.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.cal-session-time {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.2rem;
+}
+
+.cal-session-module {
+  font-size: 0.8rem;
+  font-weight: 800;
+  margin-bottom: 0.1rem;
+}
+
+.cal-session-topic {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  line-height: 1.4;
+  color: #374151;
+}
+
+.cal-empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+/* Drop zone styling */
+.cal-sessions-list.drag-over {
+  background: rgba(79, 70, 229, 0.05);
+  border: 2px dashed var(--primary);
+  border-radius: 10px;
+}
+
+/* ── MANUAL GENERATION (Secondary Action at Bottom) ───────────────────── */
+.manual-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px dashed #e5e7eb;
+}
+
+.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(255,255,255,0.5);
+  border-radius: 14px;
+  transition: all 0.18s;
+  border: 1px solid #e5e7eb;
+}
+
+.collapsible-header:hover {
+  background: rgba(255,255,255,0.9);
+  border-color: #c7d2fe;
+}
+
+.collapsible-icon {
+  font-size: 1.2rem;
+  color: var(--primary);
+  transition: transform 0.2s;
+}
+
+.collapsible-header.open .collapsible-icon {
+  transform: rotate(180deg);
+}
+
+.collapsible-title {
+  flex: 1;
+}
+
+.collapsible-title h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.15rem;
+}
+
+.collapsible-title p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.collapsible-content {
+  display: none;
+  padding: 1.5rem 0 0 0;
+}
+
+.collapsible-content.open {
+  display: block;
+}
+
+.form-group {
+  margin-bottom: 1.2rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: all 0.18s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.btn-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.18s;
+  font-family: inherit;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #3730a3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.btn-secondary {
+  background: white;
+  color: #475569;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Status and Error Messages */
+.status-bar {
+  display: none;
+  align-items: center;
+  gap: 0.65rem;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  font-size: 0.86rem;
+  color: var(--primary);
+  margin-bottom: 1.1rem;
+  font-weight: 600;
+}
+
+.status-bar.visible { display: flex; }
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #c7d2fe;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-box {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 14px;
+  padding: 0.85rem 1.2rem;
+  color: #991b1b;
+  font-size: 0.88rem;
+  display: none;
+  margin-bottom: 1.1rem;
+}
+
+.error-box.visible { display: block; }
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .next-session-info {
+    flex-direction: column;
+  }
+
+  .next-session-countdown {
+    text-align: left;
+  }
+
+  .calendar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+</style>
+
+<section class="plan-dashboard">
+
+    <!-- Hero Section -->
+    <div class="plan-hero">
+        <span class="eyebrow">📅 Your Study Schedule</span>
+        <h1>Study Plan</h1>
+        <p>Your AI-powered study schedule adapts to your learning style and academic calendar.</p>
+    </div>
+
+    <!-- Auto-Generation Info Banner -->
+    <div class="auto-info-banner">
+        <i class="fa-solid fa-robot"></i>
+        <div class="auto-info-content">
+            <div class="auto-info-title">🤖 Automatic Weekly Planning Active</div>
+            <p class="auto-info-text">
+                Aegis automatically generates your 2-week study plan every <strong>Sunday at 12:00 AM</strong>.
+                No manual intervention needed – your personalized schedule updates itself based on your progress and upcoming assessments.
+            </p>
+            <div class="next-gen-countdown" id="nextGenCountdown">
+                ⏰ Next auto-generation: Calculating...
+            </div>
+        </div>
+    </div>
+
+    <!-- Setup Warning -->
+    {% if not setup_ok %}
+    <div class="setup-warning">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <p>
+            Your profile isn't fully set up yet. Please complete the
+            <a href="{{ url_for('upload.upload') }}">Upload Wizard</a>
+            so Aegis can generate your personalized study schedule.
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- TODAY'S FOCUS SECTION -->
+    <div class="dashboard-card today-section">
+        <div class="card-header">
+            <div>
+                <h2 class="today-date">
+                    📍 Today
+                    <small id="todayDateText"></small>
+                </h2>
+            </div>
+        </div>
+
+        <!-- Next Session Banner -->
+        <div class="next-session-banner" id="nextSessionBanner">
+            <div class="next-session-label">⏰ Next Session</div>
+            <div class="next-session-info">
+                <div class="next-session-details">
+                    <h3 id="nextSessionModule"></h3>
+                    <p class="next-session-time" id="nextSessionTime"></p>
+                    <p class="session-topic" id="nextSessionTopic"></p>
+                </div>
+                <div class="next-session-countdown">
+                    <div class="countdown-timer" id="countdownTimer">--:--</div>
+                    <div class="countdown-label">starts in</div>
+                </div>
+            </div>
+            <div class="session-actions">
+                <button class="btn-join" onclick="startStudySession()">
+                    <i class="fa-solid fa-play"></i> Start Session
+                </button>
+                <button class="btn-reschedule" onclick="rescheduleSession()">
+                    <i class="fa-solid fa-calendar-days"></i> Reschedule
+                </button>
+            </div>
+        </div>
+
+        <!-- Today's Session List -->
+        <div class="today-sessions" id="todaySessions">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- WEEKLY PROGRESS SECTION -->
+    <div class="dashboard-card progress-section">
+        <div class="card-header">
+            <h3 class="card-title">📊 This Week's Progress</h3>
+        </div>
+
+        <div class="progress-stats">
+            <div class="stat-item">
+                <div class="stat-value" id="completedSessions">0</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="totalSessions">0</div>
+                <div class="stat-label">Total Planned</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="completionRate">0%</div>
+                <div class="stat-label">Completion Rate</div>
+            </div>
+        </div>
+
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;">
+                <span class="progress-bar-text" id="progressBarText">0/0 sessions</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- WEEK VIEW (Compact Calendar) -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <h3 class="card-title">📆 Two-Week Schedule</h3>
+            <div class="card-actions">
+                <button class="btn-secondary" style="font-size:0.85rem; padding:0.5rem 1rem;" onclick="toggleCalendarView()">
+                    <i class="fa-solid fa-expand"></i> Full View
+                </button>
+            </div>
+        </div>
+
+        <!-- Week Selector Tabs -->
+        <div class="week-selector">
+            <button class="week-tab active" id="weekTab1" onclick="switchWeekView(1)">
+                <span id="weekLabel1">Current Week</span>
+            </button>
+            <button class="week-tab" id="weekTab2" onclick="switchWeekView(2)">
+                <span id="weekLabel2">Next Week</span>
+            </button>
+        </div>
+
+        <!-- Week 1 Calendar -->
+        <div class="calendar-container" id="week1Container">
+            <div class="calendar-grid" id="calendarWeek1">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Week 2 Calendar -->
+        <div class="calendar-container" id="week2Container" style="display:none;">
+            <div class="calendar-grid" id="calendarWeek2">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MANUAL GENERATION SECTION (Collapsed by Default) -->
+    <div class="manual-section">
+        <div class="collapsible-header" onclick="toggleManualGeneration()">
+            <i class="fa-solid fa-chevron-down collapsible-icon" id="manualIcon"></i>
+            <div class="collapsible-title">
+                <h3>🛠️ Manual Plan Generation</h3>
+                <p>Override automatic scheduling or regenerate your plan immediately</p>
+            </div>
+        </div>
+
+        <div class="collapsible-content" id="manualContent">
+            <div class="dashboard-card">
+                <div class="form-group">
+                    <label class="form-label">
+                        Plan name
+                        <span style="color:var(--muted); font-weight:400;">(optional — names the current-week plan)</span>
+                    </label>
+                    <input
+                        class="form-input"
+                        type="text"
+                        id="planTitle"
+                        placeholder="{{ default_plan_title or 'Week 1 Study Plan' }}"
+                        value="{{ default_plan_title or '' }}"
+                        maxlength="80"
+                    >
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn btn-primary" id="generateBtn" onclick="generatePlan()" {% if not setup_ok %}disabled{% endif %}>
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate 2-Week Study Plan
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearOutput()">
+                        <i class="fa-solid fa-xmark"></i> Clear
+                    </button>
+                </div>
+
+                <p style="font-size:0.82rem; color:var(--muted); margin-top:0.5rem;">
+                    Generates plans for <strong>current week</strong> and <strong>next week</strong>. Generation takes ~40–80 seconds.
+                </p>
+
+                <!-- Status and Error Messages -->
+                <div class="status-bar" id="planStatus">
+                    <div class="spinner"></div>
+                    <span id="planStatusTxt">Starting…</span>
+                </div>
+                <div class="error-box" id="planError"></div>
+            </div>
+        </div>
+    </div>
+
+</section>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// IMPROVED DASHBOARD JAVASCRIPT WITH AUTO-SCHEDULING AWARENESS
+// ═══════════════════════════════════════════════════════════════════════════
+
+let currentPlanData = {
+    week1: null,
+    week2: null,
+    activeWeek: 1
+};
+
+let countdownInterval = null;
+
+// ── Initialize Dashboard ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    initializeDashboard();
+    loadLatestPlans();
+    updateTodayDate();
+    updateNextGenerationCountdown();
+    setInterval(updateCountdown, 1000); // Update countdown every second
+    setInterval(updateNextGenerationCountdown, 60000); // Update next-gen countdown every minute
+});
+
+function updateTodayDate() {
+    const now = new Date();
+    const options = { weekday: 'long', month: 'long', day: 'numeric' };
+    const dateText = now.toLocaleDateString('en-US', options);
+    document.getElementById('todayDateText').textContent = dateText;
+}
+
+function updateNextGenerationCountdown() {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    // Calculate days until next Sunday
+    let daysUntilSunday = (7 - currentDay) % 7;
+
+    // If it's Sunday but past 00:00, add 7 days
+    if (currentDay === 0 && (currentHour > 0 || (currentHour === 0 && currentMinute > 0))) {
+        daysUntilSunday = 7;
+    }
+
+    // Calculate next Sunday at 12:00 AM
+    const nextSunday = new Date(now);
+    nextSunday.setDate(now.getDate() + daysUntilSunday);
+    nextSunday.setHours(0, 0, 0, 0);
+
+    const diff = nextSunday - now;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    let countdownText = '';
+    if (days > 0) {
+        countdownText = `⏰ Next auto-generation: ${days}d ${hours}h`;
+    } else if (hours > 0) {
+        countdownText = `⏰ Next auto-generation: ${hours}h ${minutes}m`;
+    } else {
+        countdownText = `⏰ Next auto-generation: ${minutes}m`;
+    }
+
+    const countdownEl = document.getElementById('nextGenCountdown');
+    if (countdownEl) {
+        countdownEl.textContent = countdownText;
+    }
+}
+
+// ── Load Latest Plans from Server ────────────────────────────────────────
+async function loadLatestPlans() {
+    try {
+        // Fetch the latest two plans (Week N and Week N+1)
+        const response = await fetch('/plan/latest');
+        if (!response.ok) {
+            console.warn('No study plans found. Plans will be generated automatically on Sunday.');
+            showNoPlansMessage();
+            return;
+        }
+
+        const data = await response.json();
+        currentPlanData.week1 = data.primary;
+        currentPlanData.week2 = data.secondary;
+
+        renderDashboard();
+    } catch (error) {
+        console.error('Failed to load study plans:', error);
+        showNoPlansMessage();
+    }
+}
+
+function showNoPlansMessage() {
+    document.getElementById('todaySessions').innerHTML = `
+        <div class="no-sessions">
+            <p style="font-size:1rem; margin-bottom:0.5rem;">📅 No study plan found</p>
+            <p style="font-size:0.85rem;">Your weekly study plan will be automatically generated every Sunday at midnight.</p>
+            <p style="font-size:0.85rem; margin-top:0.5rem;">
+                <a href="javascript:toggleManualGeneration()" style="color:var(--primary); font-weight:600;">
+                    Generate manually now
+                </a>
+            </p>
+        </div>
+    `;
+}
+
+// ── Render Dashboard Components ──────────────────────────────────────────
+function renderDashboard() {
+    renderTodaySection();
+    renderProgressSection();
+    renderWeekView();
+}
+
+function renderTodaySection() {
+    const today = new Date();
+    const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+
+    // Get today's sessions from current week plan
+    const plan = currentPlanData.week1;
+    if (!plan || !plan.timetable_json) {
+        document.getElementById('todaySessions').innerHTML = '<div class="no-sessions">No sessions scheduled for today</div>';
+        return;
+    }
+
+    const todaySessions = plan.timetable_json.filter(session =>
+        session.day.toLowerCase() === dayName.toLowerCase()
+    );
+
+    if (todaySessions.length === 0) {
+        document.getElementById('todaySessions').innerHTML = '<div class="no-sessions">No sessions scheduled for today</div>';
+        return;
+    }
+
+    // Sort sessions by start time
+    todaySessions.sort((a, b) => {
+        const timeA = parseTimeString(a.start);
+        const timeB = parseTimeString(b.start);
+        return timeA - timeB;
+    });
+
+    // Find next upcoming session
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    let nextSession = null;
+    let nextSessionIndex = -1;
+
+    for (let i = 0; i < todaySessions.length; i++) {
+        const session = todaySessions[i];
+        const sessionStart = parseTimeString(session.start);
+        if (sessionStart > currentTime) {
+            nextSession = session;
+            nextSessionIndex = i;
+            break;
+        }
+    }
+
+    // Show next session banner if exists
+    if (nextSession) {
+        showNextSessionBanner(nextSession);
+    } else {
+        document.getElementById('nextSessionBanner').classList.remove('visible');
+    }
+
+    // Render all today's sessions
+    const container = document.getElementById('todaySessions');
+    container.innerHTML = todaySessions.map((session, index) => {
+        const status = getSessionStatus(session);
+        const icon = getStatusIcon(status);
+        const badge = getStatusBadge(status);
+
+        return `
+            <div class="session-item">
+                <div class="session-status-icon ${status}">${icon}</div>
+                <div class="session-content">
+                    <div class="session-time">${session.start} - ${session.end}</div>
+                    <div class="session-module">${session.subject || 'Study Session'}</div>
+                    <div class="session-topic">${session.topic || ''}</div>
+                </div>
+                <span class="session-badge ${status}">${badge}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function showNextSessionBanner(session) {
+    const banner = document.getElementById('nextSessionBanner');
+    banner.classList.add('visible');
+
+    document.getElementById('nextSessionModule').textContent = session.subject || 'Study Session';
+    document.getElementById('nextSessionTime').textContent = `${session.start} - ${session.end}`;
+    document.getElementById('nextSessionTopic').textContent = session.topic || '';
+
+    updateCountdown();
+}
+
+function updateCountdown() {
+    const banner = document.getElementById('nextSessionBanner');
+    if (!banner.classList.contains('visible')) return;
+
+    const nextSessionTime = document.getElementById('nextSessionTime').textContent.split(' - ')[0];
+    const now = new Date();
+    const sessionTime = parseTimeToDate(nextSessionTime);
+
+    const diff = sessionTime - now;
+
+    if (diff <= 0) {
+        document.getElementById('countdownTimer').textContent = 'Starting Now!';
+        return;
+    }
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    if (hours > 0) {
+        document.getElementById('countdownTimer').textContent = `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+        document.getElementById('countdownTimer').textContent = `${minutes}m ${seconds}s`;
+    } else {
+        document.getElementById('countdownTimer').textContent = `${seconds}s`;
+    }
+}
+
+function parseTimeToDate(timeStr) {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+}
+
+function getSessionStatus(session) {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const sessionStart = parseTimeString(session.start);
+    const sessionEnd = parseTimeString(session.end);
+
+    if (currentTime >= sessionEnd) {
+        return 'completed'; // Assuming completed if past end time
+    } else if (currentTime >= sessionStart && currentTime < sessionEnd) {
+        return 'upcoming'; // Currently happening
+    } else if (sessionStart - currentTime <= 30) {
+        return 'starting-soon'; // Starting within 30 minutes
+    } else {
+        return 'scheduled';
+    }
+}
+
+function getStatusIcon(status) {
+    const icons = {
+        'completed': '✓',
+        'upcoming': '▶',
+        'starting-soon': '⏰',
+        'scheduled': '○'
+    };
+    return icons[status] || '○';
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'completed': 'Completed',
+        'upcoming': 'In Progress',
+        'starting-soon': 'Starting Soon',
+        'scheduled': 'Scheduled'
+    };
+    return badges[status] || 'Scheduled';
+}
+
+function parseTimeString(timeStr) {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+}
+
+// ── Render Progress Section ──────────────────────────────────────────────
+function renderProgressSection() {
+    const plan = currentPlanData.week1;
+    if (!plan || !plan.timetable_json) {
+        return;
+    }
+
+    const totalSessions = plan.timetable_json.length;
+    // For now, we'll show 0 completed since we're only showing planned sessions
+    // In a real implementation, you'd fetch actual completion data from tracker
+    const completedSessions = 0;
+    const completionRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
+
+    document.getElementById('completedSessions').textContent = completedSessions;
+    document.getElementById('totalSessions').textContent = totalSessions;
+    document.getElementById('completionRate').textContent = `${completionRate}%`;
+
+    const progressBarFill = document.getElementById('progressBarFill');
+    const progressBarText = document.getElementById('progressBarText');
+
+    progressBarFill.style.width = `${completionRate}%`;
+    progressBarText.textContent = `${completedSessions}/${totalSessions} sessions`;
+}
+
+// ── Render Week View ─────────────────────────────────────────────────────
+function renderWeekView() {
+    renderWeek(1, 'calendarWeek1', currentPlanData.week1);
+    renderWeek(2, 'calendarWeek2', currentPlanData.week2);
+
+    // Update week labels
+    if (currentPlanData.week1) {
+        const weekNum1 = extractWeekNumber(currentPlanData.week1.title);
+        document.getElementById('weekLabel1').textContent = `Week ${weekNum1}`;
+    }
+
+    if (currentPlanData.week2) {
+        const weekNum2 = extractWeekNumber(currentPlanData.week2.title);
+        document.getElementById('weekLabel2').textContent = `Week ${weekNum2}`;
+    }
+}
+
+function renderWeek(weekNum, containerId, planData) {
+    const container = document.getElementById(containerId);
+    if (!planData || !planData.timetable_json) {
+        container.innerHTML = '<div class="no-sessions">No plan available for this week</div>';
+        return;
+    }
+
+    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
+    // Group sessions by day
+    const sessionsByDay = {};
+    daysOfWeek.forEach(day => { sessionsByDay[day] = []; });
+
+    planData.timetable_json.forEach(session => {
+        const day = session.day;
+        if (sessionsByDay[day]) {
+            sessionsByDay[day].push(session);
+        }
+    });
+
+    // Render calendar grid
+    container.innerHTML = daysOfWeek.map(day => {
+        const isToday = day === today && weekNum === 1;
+        const sessions = sessionsByDay[day] || [];
+
+        // Sort sessions by start time
+        sessions.sort((a, b) => {
+            const timeA = parseTimeString(a.start);
+            const timeB = parseTimeString(b.start);
+            return timeA - timeB;
+        });
+
+        return `
+            <div class="cal-day">
+                <div class="cal-day-header ${isToday ? 'today' : ''}">${day}</div>
+                <div class="cal-sessions-list" data-day="${day}" data-week="${weekNum}"
+                     ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                    ${sessions.length > 0
+                        ? sessions.map(session => renderCalSession(session)).join('')
+                        : '<div class="cal-empty">No sessions</div>'
+                    }
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderCalSession(session) {
+    const colors = getModuleColor(session.subject);
+    return `
+        <div class="cal-session" draggable="true"
+             ondragstart="handleDragStart(event)"
+             ondragend="handleDragEnd(event)"
+             style="background:${colors.bg}; border:1px solid ${colors.border}; color:${colors.text};"
+             data-session='${JSON.stringify(session)}'>
+            <div class="cal-session-time">${session.start} - ${session.end}</div>
+            <div class="cal-session-module">${session.subject || 'Study'}</div>
+            <div class="cal-session-topic">${session.topic || ''}</div>
+        </div>
+    `;
+}
+
+function getModuleColor(module) {
+    const colors = {
+        'EG2A11': { bg: '#fee2e2', border: '#fca5a5', text: '#991b1b' },
+        'EG2A12': { bg: '#dbeafe', border: '#93c5fd', text: '#1e40af' },
+        'EG2A13': { bg: '#fef3c7', border: '#fcd34d', text: '#92400e' },
+        'EG2A14': { bg: '#d1fae5', border: '#6ee7b7', text: '#065f46' },
+        'EG2A16': { bg: '#e0e7ff', border: '#c7d2fe', text: '#3730a3' },
+        'EG2A17': { bg: '#fce7f3', border: '#f9a8d4', text: '#9f1239' }
+    };
+
+    // Find matching module code
+    for (const [code, color] of Object.entries(colors)) {
+        if (module && module.includes(code)) {
+            return color;
+        }
+    }
+
+    // Default color
+    return { bg: '#f1f5f9', border: '#cbd5e1', text: '#475569' };
+}
+
+function extractWeekNumber(title) {
+    const match = title.match(/Week\s*(\d+)/i);
+    return match ? match[1] : '?';
+}
+
+// ── Drag and Drop Functionality ───────────────────────────────────────────
+let draggedSession = null;
+
+function handleDragStart(event) {
+    draggedSession = JSON.parse(event.target.dataset.session);
+    event.target.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(event) {
+    event.target.classList.remove('dragging');
+    // Remove all drag-over styling
+    document.querySelectorAll('.cal-sessions-list').forEach(el => {
+        el.classList.remove('drag-over');
+    });
+}
+
+function handleDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    event.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(event) {
+    event.currentTarget.classList.remove('drag-over');
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+
+    if (!draggedSession) return;
+
+    const targetDay = event.currentTarget.dataset.day;
+    const targetWeek = parseInt(event.currentTarget.dataset.week);
+
+    console.log(`Moving session from ${draggedSession.day} to ${targetDay} in Week ${targetWeek}`);
+
+    // Update session day
+    draggedSession.day = targetDay;
+
+    // TODO: Send update to server to persist the change
+    // For now, just re-render
+    renderWeekView();
+
+    draggedSession = null;
+}
+
+// ── Week View Switching ───────────────────────────────────────────────────
+function switchWeekView(weekNum) {
+    currentPlanData.activeWeek = weekNum;
+
+    // Update tab styling
+    document.getElementById('weekTab1').classList.toggle('active', weekNum === 1);
+    document.getElementById('weekTab2').classList.toggle('active', weekNum === 2);
+
+    // Toggle container visibility
+    document.getElementById('week1Container').style.display = weekNum === 1 ? 'block' : 'none';
+    document.getElementById('week2Container').style.display = weekNum === 2 ? 'block' : 'none';
+}
+
+// ── Manual Generation Toggle ──────────────────────────────────────────────
+function toggleManualGeneration() {
+    const header = document.querySelector('.collapsible-header');
+    const content = document.getElementById('manualContent');
+    const icon = document.getElementById('manualIcon');
+
+    header.classList.toggle('open');
+    content.classList.toggle('open');
+}
+
+// ── Action Handlers ───────────────────────────────────────────────────────
+function startStudySession() {
+    // Redirect to tracker page to start session
+    window.location.href = '/tracker';
+}
+
+function rescheduleSession() {
+    alert('Rescheduling feature coming soon! Use drag-and-drop to move sessions between days.');
+}
+
+function toggleCalendarView() {
+    alert('Full calendar view coming soon!');
+}
+
+// ── Initialize Dashboard ──────────────────────────────────────────────────
+function initializeDashboard() {
+    console.log('Dashboard initialized');
+}
+
+// ── Manual Generation (kept from original) ────────────────────────────────
+async function generatePlan() {
+    const btn = document.getElementById('generateBtn');
+    const errBox = document.getElementById('planError');
+    const statusBar = document.getElementById('planStatus');
+    const statusTxt = document.getElementById('planStatusTxt');
+
+    errBox.className = 'error-box';
+    errBox.textContent = '';
+    statusBar.className = 'status-bar visible';
+    statusTxt.textContent = 'Starting plan generation...';
+
+    btn.disabled = true;
+
+    const planTitle = document.getElementById('planTitle').value.trim();
+
+    try {
+        const response = await fetch('/plan/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_title: planTitle })
+        });
+
+        if (!response.ok) {
+            throw new Error('Plan generation failed');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = JSON.parse(line.slice(6));
+
+                    if (data.status) {
+                        statusTxt.textContent = data.status;
+                    }
+
+                    if (data.week1_done) {
+                        statusTxt.textContent = 'Week 1 complete! Generating Week 2...';
+                    }
+
+                    if (data.done) {
+                        statusBar.className = 'status-bar';
+                        alert('Study plans generated successfully! Refreshing dashboard...');
+                        loadLatestPlans();
+                        toggleManualGeneration(); // Collapse manual section
+                    }
+
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        errBox.textContent = error.message;
+        errBox.className = 'error-box visible';
+        statusBar.className = 'status-bar';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function clearOutput() {
+    document.getElementById('planError').className = 'error-box';
+    document.getElementById('planStatus').className = 'status-bar';
+}
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,1059 @@
+{% extends "base.html" %}
+{% block title %}Assignment Checker — Aegis{% endblock %}
+
+{% block content %}
+<style>
+/* ── Layout (MINIMIZED) ───────────────────────────────────────────────────── */
+.ac-page { width: 100%; max-width: none; margin: 0; padding: 0 0 1.5rem; }
+.ac-header { margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.ac-header-text h1 { font-size: 1.3rem; font-weight: 700; color: #1a1a2e; margin: 0; display: flex; align-items: center; gap: .4rem; }
+.ac-header-text h1 i { font-size: 1.1rem; }
+.ac-header-text p  { display: none; /* Hidden to save space */ }
+
+/* ── Page-level view toggle ───────────────────────────────────── */
+.ac-view-toggle { display: flex; gap: .5rem; flex-shrink: 0; margin-top: .25rem; }
+.ac-view-btn {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .5rem 1rem; border: 1.5px solid #e5e7eb; border-radius: 8px;
+  background: #f9fafb; font-size: .875rem; font-weight: 500; color: #6b7280;
+  cursor: pointer; transition: all .15s;
+}
+.ac-view-btn.active { border-color: #6366f1; background: #eef2ff; color: #4f46e5; }
+.ac-view-btn:hover:not(.active) { border-color: #d1d5db; background: #f3f4f6; color: #374151; }
+
+/* ── History panel ────────────────────────────────────────────── */
+.ac-history-panel { display: none; }
+.ac-history-panel.visible { display: block; }
+.ac-history-empty { text-align: center; padding: 5rem 2rem 4rem; }
+.ac-history-empty-icon { width: 80px; height: 80px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; }
+.ac-history-empty-icon i { font-size: 2rem; color: #d1d5db; }
+.ac-history-empty h3 { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; margin: 0 0 .5rem; }
+.ac-history-empty p { font-size: .9rem; color: #9ca3af; margin: 0 0 1.5rem; line-height: 1.6; }
+.ac-history-empty-btn { display: inline-flex; align-items: center; gap: .45rem; padding: .6rem 1.4rem; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: .875rem; font-weight: 600; cursor: pointer; transition: background .15s; }
+.ac-history-empty-btn:hover { background: #4338ca; }
+.ac-history-list { display: flex; flex-direction: column; gap: .75rem; }
+.ac-history-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1rem; cursor: pointer; transition: all .15s; position: relative; }
+.ac-history-item:hover { border-color: #a5b4fc; box-shadow: 0 2px 8px rgba(99,102,241,.1); }
+.ac-history-score { width: 52px; height: 52px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; line-height: 1; }
+.ac-history-score .hs-num { font-size: 1.2rem; }
+.ac-history-score .hs-pct { font-size: .65rem; font-weight: 600; opacity: .75; margin-top: .1rem; }
+.ac-history-body { flex: 1; min-width: 0; }
+.ac-history-title { font-weight: 600; color: #1a1a2e; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: .25rem; }
+.ac-history-meta  { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .78rem; color: #9ca3af; }
+.ac-history-meta .ac-hbadge { display: inline-flex; align-items: center; gap: .25rem; padding: .15rem .55rem; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+.ac-hbadge.rubric  { background: #ede9fe; color: #6d28d9; }
+.ac-hbadge.generic { background: #f3f4f6; color: #6b7280; }
+.ac-hbadge.lenient { background: #dcfce7; color: #15803d; }
+.ac-hbadge.normal  { background: #dbeafe; color: #1d4ed8; }
+.ac-hbadge.strict  { background: #fff7ed; color: #c2410c; }
+.ac-history-del { background: none; border: none; cursor: pointer; color: #d1d5db; font-size: .95rem; padding: .4rem; border-radius: 6px; transition: all .15s; flex-shrink: 0; }
+.ac-history-del:hover { color: #d97706; background: #fffbeb; }
+.ac-history-confirm { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; }
+.ac-history-confirm span { font-size: .78rem; color: #6b7280; white-space: nowrap; }
+.ac-confirm-del { padding: .3rem .7rem; border: none; border-radius: 6px; background: #d97706; color: #fff; font-size: .78rem; font-weight: 600; cursor: pointer; transition: background .15s; }
+.ac-confirm-del:hover { background: #b45309; }
+.ac-confirm-cancel { padding: .3rem .7rem; border: 1.5px solid #e5e7eb; border-radius: 6px; background: #fff; color: #6b7280; font-size: .78rem; font-weight: 600; cursor: pointer; transition: all .15s; }
+.ac-confirm-cancel:hover { border-color: #d1d5db; background: #f3f4f6; color: #374151; }
+.ac-history-loading { text-align: center; padding: 2rem; color: #6b7280; font-size: .875rem; }
+
+/* Viewing a history result */
+.ac-history-result-bar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; padding: .75rem 1.1rem; background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 10px; font-size: .875rem; color: #4c1d95; }
+.ac-history-result-bar i { flex-shrink: 0; }
+.ac-history-result-bar strong { font-weight: 600; }
+.ac-history-result-bar .ac-hrb-back { margin-left: auto; cursor: pointer; background: none; border: none; color: #6d28d9; font-size: .875rem; font-weight: 600; padding: 0; display: flex; align-items: center; gap: .3rem; }
+.ac-history-result-bar .ac-hrb-back:hover { text-decoration: underline; }
+
+/* ── Step labels (COMPACT) ──────────────────────────────────────────────── */
+.ac-step-label { display: flex; align-items: center; gap: .5rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; margin-bottom: .6rem; }
+.ac-step-badge { width: 20px; height: 20px; border-radius: 50%; background: #6366f1; color: #fff; font-size: .68rem; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ac-step-badge.required { background: #dc2626; }
+.ac-required-tag { font-size: .68rem; font-weight: 700; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 20px; padding: .08rem .5rem; }
+.ac-optional-tag { font-size: .68rem; font-weight: 600; color: #9ca3af; font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+/* ── Card (COMPACT) ─────────────────────────────────────────────────────── */
+.ac-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+.ac-card.instr-card  { border-color: #bae6fd; background: #f0f9ff; }
+.ac-card.rubric-card { border-color: #c7d2fe; background: #fafbff; }
+.ac-card-title { font-size: .9rem; font-weight: 600; color: #1a1a2e; margin: 0 0 .75rem; display: flex; align-items: center; gap: .4rem; }
+.ac-card-title i { color: #6366f1; font-size: .85rem; }
+.ac-card.instr-card .ac-card-title i  { color: #0284c7; }
+.ac-card.rubric-card .ac-card-title i { color: #6366f1; }
+
+/* ── File loaded status banner ────────────────────────────────── */
+.ac-file-status { display: none; align-items: center; gap: .75rem; padding: .75rem 1rem; border-radius: 8px; font-size: .875rem; margin-top: .75rem; }
+.ac-file-status.loaded { display: flex; background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+.ac-file-status.loaded i { color: #16a34a; }
+.ac-file-status .ac-file-clear { margin-left: auto; cursor: pointer; background: none; border: none; color: #6b7280; font-size: .95rem; padding: 0; }
+.ac-file-status .ac-file-clear:hover { color: #d97706; }
+.ac-native-doc-note { font-size: .78rem; color: #6b7280; font-style: italic; }
+
+/* ── Input tabs ───────────────────────────────────────────────── */
+/* ── Textarea ─────────────────────────────────────────────────── */
+.ac-textarea { width: 100%; min-height: 220px; padding: .875rem; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: .9rem; font-family: inherit; line-height: 1.6; resize: vertical; color: #1f2937; background: #fafafa; box-sizing: border-box; transition: border-color .15s; }
+.ac-textarea:focus { outline: none; border-color: #6366f1; background: #fff; }
+.ac-char-count { text-align: right; font-size: .78rem; color: #9ca3af; margin-top: .35rem; }
+.ac-char-count.over { color: #ef4444; }
+
+/* ── Upload zone (COMPACT) ──────────────────────────────────────────────── */
+.ac-upload-zone { border: 2px dashed #d1d5db; border-radius: 8px; padding: 1.5rem 1.25rem; text-align: center; cursor: pointer; transition: all .2s; background: #fafafa; }
+.ac-upload-zone:hover, .ac-upload-zone.dragover { border-color: #6366f1; background: #eef2ff; }
+.ac-upload-zone i { font-size: 1.4rem; color: #9ca3af; margin-bottom: .5rem; }
+.ac-upload-zone.dragover i { color: #6366f1; }
+.ac-upload-zone p  { margin: .15rem 0; font-size: .82rem; color: #6b7280; }
+.ac-upload-zone strong { color: #374151; }
+.ac-upload-zone small  { color: #9ca3af; font-size: .72rem; }
+
+.ac-file-list { display: none; flex-direction: column; gap: .5rem; margin-top: .875rem; }
+.ac-file-list.visible { display: flex; }
+.ac-file-row { display: flex; align-items: center; gap: .65rem; padding: .6rem 1rem; border-radius: 8px; font-size: .875rem; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+.ac-file-row i { flex-shrink: 0; }
+.ac-file-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-file-row-meta { color: #6b7280; font-size: .78rem; white-space: nowrap; }
+.ac-file-row-remove { cursor: pointer; background: none; border: none; color: #6b7280; font-size: .95rem; padding: 0; }
+.ac-file-row-remove:hover { color: #ef4444; }
+
+/* ── Upload button (inline style) ────────────────────────────── */
+.ac-upload-btn { display: inline-flex; align-items: center; gap: .5rem; padding: .55rem 1.1rem; border: 1.5px solid; border-radius: 8px; font-size: .875rem; font-weight: 600; cursor: pointer; transition: all .15s; }
+.ac-upload-btn.blue   { border-color: #bae6fd; background: #e0f2fe; color: #0369a1; }
+.ac-upload-btn.blue:hover   { background: #bae6fd; border-color: #7dd3fc; }
+.ac-upload-btn.purple { border-color: #c7d2fe; background: #eef2ff; color: #4f46e5; }
+.ac-upload-btn.purple:hover { background: #e0e7ff; border-color: #a5b4fc; }
+
+/* ── Options ──────────────────────────────────────────────────── */
+.ac-field label { display: block; font-size: .78rem; font-weight: 700; color: #374151; margin-bottom: .4rem; text-transform: uppercase; letter-spacing: .04em; }
+.ac-requirements { width: 100%; padding: .6rem .875rem; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: .875rem; font-family: inherit; color: #1f2937; background: #fafafa; box-sizing: border-box; min-height: 80px; resize: vertical; transition: border-color .15s; }
+.ac-requirements:focus { outline: none; border-color: #6366f1; background: #fff; }
+
+/* ── Submit (COMPACT) ───────────────────────────────────────────────────── */
+.ac-submit-btn { width: 100%; padding: .75rem; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: background .15s, transform .1s; display: flex; align-items: center; justify-content: center; gap: .4rem; }
+.ac-submit-btn:hover:not(:disabled) { background: #4338ca; }
+.ac-submit-btn:active:not(:disabled) { transform: scale(.99); }
+.ac-submit-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ── Loading ──────────────────────────────────────────────────── */
+.ac-loading { display: none; text-align: center; padding: 3rem 1.5rem; }
+.ac-loading.visible { display: block; }
+.ac-spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; animation: acSpin .8s linear infinite; margin: 0 auto 1rem; }
+@keyframes acSpin { to { transform: rotate(360deg); } }
+.ac-loading p { color: #6b7280; font-size: .95rem; }
+.ac-loading .ac-tip { font-size: .82rem; color: #9ca3af; margin-top: .5rem; }
+
+/* ── Error ────────────────────────────────────────────────────── */
+.ac-error { display: none; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; color: #92400e; font-size: .9rem; align-items: center; gap: .6rem; }
+.ac-error.visible { display: flex; }
+
+/* ── Results ──────────────────────────────────────────────────── */
+.ac-results { display: none; }
+.ac-results.visible { display: block; }
+.ac-reset-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .6rem 1.25rem; border: 1.5px solid #e5e7eb; border-radius: 8px; background: #fff; font-size: .875rem; font-weight: 500; color: #374151; cursor: pointer; margin-bottom: 1.25rem; transition: all .15s; }
+.ac-reset-btn:hover { border-color: #6366f1; color: #4f46e5; }
+
+/* Off-topic alert */
+.ac-off-topic-alert { display: none; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; font-size: .875rem; color: #9a3412; align-items: flex-start; gap: .75rem; }
+.ac-off-topic-alert.visible { display: flex; }
+.ac-off-topic-alert i { font-size: 1.1rem; margin-top: .05rem; flex-shrink: 0; }
+
+/* ── Score hero (COMPACT) ───────────────────────────────────────────────── */
+.ac-score-hero { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border-radius: 12px; padding: 1.5rem; color: #fff; text-align: center; margin-bottom: 1rem; position: relative; overflow: hidden; }
+.ac-score-hero::before { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+.ac-score-num   { font-size: 3.5rem; font-weight: 800; line-height: 1; margin-bottom: .15rem; }
+.ac-score-grade { font-size: 1.2rem; font-weight: 700; opacity: .9; margin-bottom: .25rem; }
+.ac-score-sub   { font-size: .78rem; opacity: .75; }
+.ac-score-marks { font-size: 1rem; font-weight: 600; opacity: .95; margin-top: .3rem; }
+.ac-mode-badge { display: inline-flex; align-items: center; gap: .3rem; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: .2rem .75rem; font-size: .72rem; font-weight: 600; margin-top: .5rem; }
+
+/* ── Rubric criteria cards (COMPACT) ────────────────────────────────────── */
+.ac-rubric-cards { display: flex; flex-direction: column; gap: .75rem; }
+.ac-rubric-card { background: #fff; border-radius: 10px; padding: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.06); border-left: 3px solid #e5e7eb; transition: all .2s; position: relative; overflow: hidden; }
+.ac-rubric-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.1); }
+.ac-rubric-card.band-A { border-left-color: #16a34a; background: linear-gradient(90deg, #f0fdf4 0%, #fff 40px); }
+.ac-rubric-card.band-B { border-left-color: #2563eb; background: linear-gradient(90deg, #eff6ff 0%, #fff 40px); }
+.ac-rubric-card.band-C { border-left-color: #d97706; background: linear-gradient(90deg, #fffbeb 0%, #fff 40px); }
+.ac-rubric-card.band-D { border-left-color: #dc2626; background: linear-gradient(90deg, #fef2f2 0%, #fff 40px); }
+.ac-rubric-card.band-F { border-left-color: #dc2626; background: linear-gradient(90deg, #fef2f2 0%, #fff 40px); }
+
+.ac-rubric-card-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .6rem; }
+.ac-rubric-card-title { font-size: .9rem; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: .4rem; flex: 1; }
+.ac-rubric-card-icon { font-size: 1.1rem; opacity: .8; }
+.ac-rubric-card-score { display: flex; align-items: center; gap: .6rem; }
+.ac-rubric-score-circle { position: relative; width: 48px; height: 48px; }
+.ac-rubric-score-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: .7rem; font-weight: 800; color: #1a1a2e; line-height: 1.1; }
+.ac-rubric-score-num { font-size: 1rem; }
+.ac-rubric-score-label { font-size: .58rem; font-weight: 600; color: #6b7280; }
+.ac-rubric-band-badge { display: inline-flex; align-items: center; gap: .3rem; padding: .3rem .65rem; border-radius: 20px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.ac-rubric-band-badge.band-A { background: #dcfce7; color: #15803d; }
+.ac-rubric-band-badge.band-B { background: #dbeafe; color: #1d4ed8; }
+.ac-rubric-band-badge.band-C { background: #fef9c3; color: #a16207; }
+.ac-rubric-band-badge.band-D { background: #ffedd5; color: #c2410c; }
+.ac-rubric-band-badge.band-F { background: #fee2e2; color: #dc2626; }
+
+.ac-rubric-feedback { margin-top: .4rem; }
+.ac-rubric-feedback-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+.ac-rubric-feedback-list li { font-size: .82rem; color: #374151; line-height: 1.4; padding-left: 1.2rem; position: relative; }
+.ac-rubric-feedback-list li.positive::before { content: '✓'; position: absolute; left: 0; color: #16a34a; font-weight: 700; }
+.ac-rubric-feedback-list li.negative::before { content: '⚠'; position: absolute; left: 0; color: #d97706; }
+
+/* ── Generic criteria grid ────────────────────────────────────── */
+.ac-criteria-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: .875rem; margin-bottom: 1.25rem; }
+@media (max-width: 680px) { .ac-criteria-grid { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 440px) { .ac-criteria-grid { grid-template-columns: 1fr; } }
+.ac-criterion { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+.ac-criterion-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+.ac-criterion-name { font-size: .78rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+.ac-criterion-score { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; }
+.ac-criterion-bar { height: 6px; background: #f3f4f6; border-radius: 3px; margin-bottom: .6rem; overflow: hidden; }
+.ac-criterion-fill { height: 100%; border-radius: 3px; transition: width .8s ease; }
+.ac-criterion-comment { font-size: .78rem; color: #6b7280; line-height: 1.5; }
+
+/* ── Strengths / Weaknesses (COMPACT) ───────────────────────────────────── */
+.ac-sw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1rem; }
+@media (max-width: 600px) { .ac-sw-grid { grid-template-columns: 1fr; } }
+.ac-sw-panel { border-radius: 10px; padding: 1rem; position: relative; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.ac-sw-panel.strengths { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #86efac; }
+.ac-sw-panel.weaknesses { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #fde68a; }
+.ac-sw-title { font-size: .9rem; font-weight: 700; margin-bottom: .75rem; display: flex; align-items: center; gap: .4rem; }
+.ac-sw-panel.strengths .ac-sw-title { color: #15803d; }
+.ac-sw-panel.weaknesses .ac-sw-title { color: #b45309; }
+.ac-sw-title i { font-size: 1rem; }
+.ac-sw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.ac-sw-list li { font-size: .82rem; color: #374151; line-height: 1.4; padding: .45rem .65rem; padding-left: 2.2rem; position: relative; background: rgba(255,255,255,.6); border-radius: 8px; }
+.ac-sw-list li::before { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); font-size: 1.1rem; }
+.strengths .ac-sw-list li::before  { content: '✓'; color: #16a34a; font-weight: 700; }
+.weaknesses .ac-sw-list li::before { content: '⚠'; color: #d97706; font-weight: 700; }
+
+/* ── Improvements (COMPACT) ─────────────────────────────────────────────── */
+.ac-improvements-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+.ac-improvements-list li { font-size: .82rem; color: #1f2937; line-height: 1.5; padding: .65rem .85rem; padding-left: 2.5rem; position: relative; background: linear-gradient(90deg, #eef2ff 0%, #f9fafb 40px); border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; transition: all .2s; }
+.ac-improvements-list li:hover { background: linear-gradient(90deg, #e0e7ff 0%, #f3f4f6 40px); transform: translateX(3px); }
+.ac-improvements-list li::before { content: '→'; position: absolute; left: .9rem; top: .65rem; color: #6366f1; font-weight: 700; font-size: 1.1rem; }
+
+/* ── Collapsible ──────────────────────────────────────────────── */
+.ac-section-toggle { width: 100%; background: none; border: none; text-align: left; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: space-between; }
+.ac-section-toggle .ac-toggle-icon { transition: transform .2s; color: #9ca3af; }
+.ac-section-toggle.collapsed .ac-toggle-icon { transform: rotate(-90deg); }
+.ac-section-body { margin-top: 1rem; }
+.ac-section-body.hidden { display: none; }
+</style>
+
+<div class="ac-page upload-page">
+  <div class="ac-header">
+    <div class="ac-header-text">
+      <h1><i class="fa-solid fa-clipboard-check" style="color:#6366f1;margin-right:.5rem;"></i>Assignment Checker</h1>
+      <p>Upload the rubric so the AI grades your work against real marking criteria — strict, specific, no fluff.</p>
+    </div>
+    <div class="ac-view-toggle">
+      <button class="ac-view-btn active" id="acViewCheck" onclick="switchView('check')">
+        <i class="fa-solid fa-magnifying-glass"></i> Check
+      </button>
+      <button class="ac-view-btn" id="acViewHistory" onclick="switchView('history')">
+        <i class="fa-solid fa-clock-rotate-left"></i> History
+        <span class="ac-history-count" id="acHistoryCount" style="display:none;background:#6366f1;color:#fff;border-radius:20px;padding:.05rem .45rem;font-size:.7rem;font-weight:700;"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ HISTORY PANEL ══════════════════════════════════════════ -->
+  <div class="ac-history-panel" id="acHistoryPanel">
+    <div class="ac-history-loading" id="acHistoryLoading">
+      <i class="fa-solid fa-spinner fa-spin" style="margin-right:.4rem;"></i> Loading history…
+    </div>
+    <div id="acHistoryContent" style="display:none;"></div>
+  </div>
+
+  <!-- ═══ STEP 1 — Rubric / Marking Scheme (Required) ═══════════ -->
+  <div class="ac-step-label" id="acStepLabel1">
+    <span class="ac-step-badge required">1</span>
+    Rubric & Instructions
+    <span class="ac-required-tag">Rubric Required</span>
+  </div>
+  <div class="ac-card rubric-card" id="acBriefCard">
+    <div class="ac-card-title"><i class="fa-solid fa-table-list"></i> Rubric & Instructions</div>
+    <p style="font-size:.8rem;color:#6b7280;margin:0 0 .75rem;">
+      Upload marking rubric and assignment instructions (multiple files supported).
+    </p>
+
+    <label class="ac-upload-btn purple" for="acBriefFileInput">
+      <i class="fa-solid fa-cloud-arrow-up"></i> Upload Files
+    </label>
+    <input type="file" id="acBriefFileInput" multiple style="display:none;">
+
+    <div class="ac-file-list" id="acContextFileList"></div>
+
+    <div class="ac-file-status" id="acBriefStatus">
+      <i class="fa-solid fa-circle-check"></i>
+      <span id="acBriefFileName">context files loaded</span>
+      <span class="ac-native-doc-note" id="acBriefNote"></span>
+      <button class="ac-file-clear" id="acBriefClear" title="Remove">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ STEP 2 — Submission ════════════════════════════════════ -->
+  <div class="ac-step-label" id="acStepLabel2">
+    <span class="ac-step-badge required">2</span>
+    Your Submission
+    <span class="ac-required-tag">Required</span>
+  </div>
+  <div class="ac-card" id="acInputCard">
+    <div class="ac-card-title"><i class="fa-solid fa-pen-to-square"></i> Your Submission</div>
+    <p style="font-size:.8rem;color:#6b7280;margin:0 0 .75rem;">
+      Upload your assignment files (essays, code, notebooks, presentations, images, etc.)
+    </p>
+
+    <div class="ac-upload-zone" id="acUploadZone">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <p><strong>Click to browse</strong> or drag and drop your files</p>
+        <small>PDF, Word, Excel, PowerPoint, images, code (.py .js .java .cpp ...), notebooks (.ipynb) - Max 50 MB each</small>
+    </div>
+    <input type="file" id="acFileInput" multiple style="display:none;">
+    <div class="ac-file-list" id="acFileList"></div>
+
+    <div class="ac-error" id="acError">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      <span id="acErrorMsg">An error occurred.</span>
+    </div>
+
+    <button class="ac-submit-btn" id="acSubmitBtn">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      Analyse Assignment
+    </button>
+  </div>
+
+  <input type="hidden" id="acStrictness" value="strict">
+  <textarea id="acRequirements" style="display:none;"></textarea>
+
+  <!-- ═══ Loading ════════════════════════════════════════════════ -->
+  <div class="ac-loading" id="acLoading">
+    <div class="ac-spinner"></div>
+    <p>Analysing your assignment…</p>
+    <p class="ac-tip">This may take 20–60 seconds depending on file size and rubric complexity.</p>
+  </div>
+
+  <!-- ═══ Results ════════════════════════════════════════════════ -->
+  <div class="ac-results" id="acResults">
+    <div class="ac-history-result-bar" id="acHistoryResultBar" style="display:none;">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      <span>Viewing saved result: <strong id="acHistoryResultTitle"></strong></span>
+      <button class="ac-hrb-back" id="acHistoryResultBack">
+        <i class="fa-solid fa-arrow-left"></i> Back to History
+      </button>
+    </div>
+
+    <button class="ac-reset-btn" id="acResetBtn">
+      <i class="fa-solid fa-arrow-left"></i> Check Another Assignment
+    </button>
+
+    <div class="ac-off-topic-alert" id="acOffTopicAlert">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <div>
+        <strong>Off-Topic Detected</strong>
+        <div id="acOffTopicReason" style="margin-top:.25rem;"></div>
+      </div>
+    </div>
+
+    <div class="ac-score-hero">
+      <div class="ac-score-num" id="acScoreNum">—</div>
+      <div class="ac-score-grade" id="acScoreGrade">—</div>
+      <div class="ac-score-sub" id="acScoreSub">Overall Score</div>
+      <div class="ac-score-marks" id="acScoreMarks" style="display:none;"></div>
+      <div>
+        <span class="ac-mode-badge" id="acModeBadge">
+          <i class="fa-solid fa-list-check"></i>
+          <span id="acModeBadgeText">Rubric Mode</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="ac-card" id="acRubricSection" style="display:none;">
+      <button class="ac-section-toggle" data-target="acRubricBody">
+        <span class="ac-card-title" style="margin:0;">
+          <i class="fa-solid fa-chart-simple"></i> Rubric Breakdown
+        </span>
+        <i class="fa-solid fa-chevron-down ac-toggle-icon"></i>
+      </button>
+      <div class="ac-section-body" id="acRubricBody">
+        <div class="ac-rubric-cards" id="acRubricCards"></div>
+      </div>
+    </div>
+
+    <div class="ac-criteria-grid" id="acCriteriaGrid" style="display:none;"></div>
+
+    <div class="ac-sw-grid">
+      <div class="ac-sw-panel strengths">
+        <div class="ac-sw-title"><i class="fa-solid fa-thumbs-up"></i> Strengths</div>
+        <ul class="ac-sw-list" id="acStrengths"></ul>
+      </div>
+      <div class="ac-sw-panel weaknesses">
+        <div class="ac-sw-title"><i class="fa-solid fa-thumbs-down"></i> Weaknesses</div>
+        <ul class="ac-sw-list" id="acWeaknesses"></ul>
+      </div>
+    </div>
+
+    <div class="ac-card">
+      <div class="ac-card-title"><i class="fa-solid fa-arrow-up"></i> How to Improve</div>
+      <div class="ac-improvements-list" id="acImprovements"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Supported file extensions ────────────────────────────────────────────
+  // ── State ────────────────────────────────────────────────────────────────
+  let selectedFiles      = [];
+  let contextFileText    = "";
+  let contextFiles       = [];
+  let contextFileObjects = [];
+  let contextNativeCount = 0;
+  let briefFileLoaded    = false;
+  const MAX_FILE_BYTES   = 50000000;
+  const MAX_FILE_LABEL   = "50 MB";
+
+  // ── Element refs ─────────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+
+  // Rubric / Brief
+  const briefFileInput = $("acBriefFileInput");
+  const briefStatus    = $("acBriefStatus");
+  const briefFileName  = $("acBriefFileName");
+  const briefNote      = $("acBriefNote");
+  const briefClear     = $("acBriefClear");
+  const contextFileList = $("acContextFileList");
+
+  // Submission
+  const uploadZone  = $("acUploadZone");
+  const fileInput   = $("acFileInput");
+  const fileList    = $("acFileList");
+
+  // Options & submit
+  const strictnessInput = $("acStrictness");
+  const requirementsEl  = $("acRequirements");
+  const submitBtn       = $("acSubmitBtn");
+  const errorBanner     = $("acError");
+  const errorMsg        = $("acErrorMsg");
+  const loadingEl       = $("acLoading");
+  const resultsEl       = $("acResults");
+  const resetBtn        = $("acResetBtn");
+
+  const inputCards = [$("acBriefCard"), $("acInputCard")];
+  const stepLabels = document.querySelectorAll(".ac-step-label");
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorBanner.classList.add("visible");
+    errorBanner.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  function hideError() { errorBanner.classList.remove("visible"); }
+  function escHtml(s)  { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function scoreColor(s) { if (s>=80) return "#16a34a"; if (s>=65) return "#2563eb"; if (s>=50) return "#d97706"; return "#b45309"; }
+
+  function getCriterionIcon(name) {
+    const n = (name || "").toLowerCase();
+    if (n.includes("understand") || n.includes("knowledge")) return "🎯";
+    if (n.includes("vulnerab") || n.includes("weakness")) return "🔒";
+    if (n.includes("cia") || n.includes("impact") || n.includes("triad")) return "⚡";
+    if (n.includes("mitigation") || n.includes("strateg") || n.includes("control")) return "🛡️";
+    if (n.includes("case") || n.includes("reflection") || n.includes("example")) return "💡";
+    if (n.includes("attack") || n.includes("threat") || n.includes("flow")) return "🎯";
+    if (n.includes("structure") || n.includes("format") || n.includes("organisation")) return "📋";
+    if (n.includes("technical") || n.includes("depth") || n.includes("detail")) return "🔧";
+    return "📌";
+  }
+
+  function parseFeedbackComment(comment) {
+    if (!comment || !comment.trim()) return "";
+    // Smart parsing: look for positive and negative indicators
+    const sentences = comment.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+    if (sentences.length === 0) return `<p style="color:#6b7280;font-size:.875rem;">${escHtml(comment)}</p>`;
+
+    const items = sentences.map(s => {
+      const text = s.trim();
+      const lower = text.toLowerCase();
+      // Positive indicators
+      if (lower.includes("clear") || lower.includes("good") || lower.includes("correct") ||
+          lower.includes("well") || lower.includes("strong") || lower.includes("effective") ||
+          lower.includes("demonstrates") || lower.includes("includes")) {
+        return `<li class="positive">${escHtml(text)}</li>`;
+      }
+      // Negative indicators
+      if (lower.includes("however") || lower.includes("lack") || lower.includes("missing") ||
+          lower.includes("absent") || lower.includes("without") || lower.includes("no mention") ||
+          lower.includes("not") || lower.includes("fails") || lower.includes("weak")) {
+        return `<li class="negative">${escHtml(text)}</li>`;
+      }
+      return `<li>${escHtml(text)}</li>`;
+    });
+    return `<ul class="ac-rubric-feedback-list">${items.join("")}</ul>`;
+  }
+  function validateFileSize(file, label) {
+    if (file.size > MAX_FILE_BYTES) {
+      showError(`${label} "${file.name}" is too large. Please upload a file smaller than ${MAX_FILE_LABEL}.`);
+      return false;
+    }
+    return true;
+  }
+
+  function setFileStatus(statusEl, fileNameEl, noteEl, loaded, name, nativeDoc) {
+    if (loaded) {
+      statusEl.classList.add("loaded");
+      fileNameEl.textContent = name;
+      noteEl.textContent = nativeDoc
+        ? "(Claude reads this natively — full fidelity)"
+        : "";
+    } else {
+      statusEl.classList.remove("loaded");
+    }
+  }
+
+  // ── Brief / Rubric file upload ────────────────────────────────────────────
+  briefFileInput.addEventListener("change", () => {
+    if (briefFileInput.files.length) addContextFiles(briefFileInput.files);
+  });
+
+  briefClear.addEventListener("click", () => {
+    contextFileText = "";
+    contextFiles = [];
+    contextFileObjects = [];
+    contextNativeCount = 0;
+    briefFileLoaded = false;
+    briefFileInput.value = "";
+    briefStatus.classList.remove("loaded");
+    contextFileList.innerHTML = "";
+    contextFileList.classList.remove("visible");
+    clearContextCache();
+  });
+
+  async function clearContextCache() {
+    try {
+      await fetch("/assignment-checker/clear-context", { method: "POST" });
+    } catch {
+      // The next upload overwrites the server cache; ignore transient clear failures.
+    }
+  }
+
+  async function addContextFiles(fileCollection) {
+    const incoming = Array.from(fileCollection);
+    const existing = new Set(contextFileObjects.map(fileKey));
+    const validFiles = [];
+
+    for (const file of incoming) {
+      if (!validateFileSize(file, "Context file")) continue;
+      const key = fileKey(file);
+      if (!existing.has(key)) {
+        validFiles.push(file);
+        existing.add(key);
+      }
+    }
+
+    if (!validFiles.length) {
+      briefFileInput.value = "";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Reading context files...';
+
+    try {
+      const allContextFiles = contextFileObjects.concat(validFiles);
+      const fd = new FormData();
+      allContextFiles.forEach(file => fd.append("context_file", file));
+      const resp = await fetch("/assignment-checker/extract-context", { method: "POST", body: fd });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error);
+
+      contextFileObjects = allContextFiles;
+      contextFiles = allContextFiles.map(file => ({
+        name: file.name || "context file",
+        size: file.size,
+        nativeDoc: false,
+      }));
+      contextFileText = (data.context_text || "").trim();
+      contextNativeCount = data.native_doc_count || 0;
+      briefFileLoaded = true;
+      renderContextFiles();
+    } catch (e) {
+      showError("Could not read context files: " + e.message);
+    } finally {
+      briefFileInput.value = "";
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Analyse Assignment';
+    }
+  }
+
+  function setContextStatus() {
+    if (!contextFiles.length) {
+      briefStatus.classList.remove("loaded");
+      return;
+    }
+    briefStatus.classList.add("loaded");
+    briefFileName.textContent = `${contextFiles.length} context file${contextFiles.length === 1 ? "" : "s"} loaded`;
+    const nativeCount = contextNativeCount;
+    briefNote.textContent = nativeCount
+      ? `(${nativeCount} native file${nativeCount === 1 ? "" : "s"} read at full fidelity)`
+      : "";
+  }
+
+  function renderContextFiles() {
+    contextFileList.innerHTML = "";
+    contextFiles.forEach(file => {
+      const row = document.createElement("div");
+      row.className = "ac-file-row";
+      row.innerHTML = `
+        <i class="fa-solid fa-file-check"></i>
+        <span class="ac-file-row-name" title="${escHtml(file.name)}">${escHtml(file.name)}</span>
+        <span class="ac-file-row-meta">${formatBytes(file.size)}</span>`;
+      contextFileList.appendChild(row);
+    });
+    contextFileList.classList.toggle("visible", contextFiles.length > 0);
+    setContextStatus();
+  }
+
+  // ── Submission tabs ───────────────────────────────────────────────────────
+  // ── Submission file drag & drop ───────────────────────────────────────────
+  uploadZone.addEventListener("click", () => fileInput.click());
+  uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("dragover"); });
+  uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+  uploadZone.addEventListener("drop", e => {
+    e.preventDefault(); uploadZone.classList.remove("dragover");
+    if (e.dataTransfer.files.length) addSubmissionFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener("change", () => { if (fileInput.files.length) addSubmissionFiles(fileInput.files); });
+
+  function formatBytes(bytes) {
+    if (!Number.isFinite(bytes)) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function fileKey(file) {
+    return `${file.name}::${file.size}::${file.lastModified}`;
+  }
+
+  function addSubmissionFiles(fileCollection) {
+    const existing = new Set(selectedFiles.map(fileKey));
+    Array.from(fileCollection).forEach(file => {
+      if (!validateFileSize(file, "Submission file")) return;
+      const key = fileKey(file);
+      if (!existing.has(key)) {
+        selectedFiles.push(file);
+        existing.add(key);
+      }
+    });
+
+    fileInput.value = "";
+    renderSubmissionFiles();
+  }
+
+  function removeSubmissionFile(index) {
+    selectedFiles.splice(index, 1);
+    renderSubmissionFiles();
+  }
+
+  function renderSubmissionFiles() {
+    fileList.innerHTML = "";
+    selectedFiles.forEach((file, index) => {
+      const row = document.createElement("div");
+      row.className = "ac-file-row";
+      row.innerHTML = `
+        <i class="fa-solid fa-file-check"></i>
+        <span class="ac-file-row-name" title="${escHtml(file.name)}">${escHtml(file.name)}</span>
+        <span class="ac-file-row-meta">${formatBytes(file.size)}</span>
+        <button class="ac-file-row-remove" type="button" title="Remove file" aria-label="Remove ${escHtml(file.name)}">
+          <i class="fa-solid fa-xmark"></i>
+        </button>`;
+      row.querySelector(".ac-file-row-remove").addEventListener("click", () => removeSubmissionFile(index));
+      fileList.appendChild(row);
+    });
+    fileList.classList.toggle("visible", selectedFiles.length > 0);
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  submitBtn.addEventListener("click", handleSubmit);
+
+  async function handleSubmit() {
+    hideError();
+
+    // Validate rubric/instruction files are provided
+    const currentBrief = contextFileText;
+    if (!currentBrief && !briefFileLoaded) {
+      showError("Rubric is required. Please upload the marking rubric or assignment instructions (Step 1) before analysing.");
+      $("acBriefCard").scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    const strictness    = strictnessInput.value;
+    const requirements  = requirementsEl.value.trim();
+    const currentInstr  = "";
+
+    if (!selectedFiles.length) {
+      showError("Please select at least one submission file (Step 2) to upload.");
+      return;
+    }
+    await runFileAnalysis(selectedFiles, strictness, requirements, currentBrief, currentInstr);
+  }
+
+  function setLoading(on) {
+    submitBtn.disabled = on;
+    submitBtn.innerHTML = on
+      ? '<i class="fa-solid fa-spinner fa-spin"></i> Analysing…'
+      : '<i class="fa-solid fa-magnifying-glass"></i> Analyse Assignment';
+    loadingEl.classList.toggle("visible", on);
+    if (on) loadingEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function runFileAnalysis(files, strictness, requirements, brief, instructions) {
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      files.forEach(file => fd.append("file", file));
+      fd.append("strictness", strictness);
+      fd.append("requirements", requirements || "");
+      fd.append("brief_text", brief || "");
+      fd.append("instructions_text", instructions || "");
+      const resp = await fetch("/assignment-checker/upload", { method: "POST", body: fd });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || "Unknown error");
+      renderResults(data.result);
+    } catch (e) { showError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  // ── Render results ────────────────────────────────────────────────────────
+  function renderResults(r) {
+    inputCards.forEach(c => { if (c) c.style.display = "none"; });
+    stepLabels.forEach(l => l.style.display = "none");
+    resultsEl.classList.add("visible");
+
+    if (r.off_topic) {
+      $("acOffTopicReason").textContent = r.off_topic_reason || "";
+      $("acOffTopicAlert").classList.add("visible");
+    }
+
+    const isRubric = r.rubric_mode === true;
+
+    $("acScoreNum").textContent   = r.overall_score ?? "—";
+    $("acScoreGrade").textContent = r.grade ?? "—";
+    $("acScoreSub").textContent   = "Overall Score / 100";
+    $("acScoreMarks").style.display = "none";
+
+    if (isRubric && r.total_marks_awarded != null) {
+      $("acScoreMarks").textContent = `${r.total_marks_awarded} / ${r.total_marks_possible} marks`;
+      $("acScoreMarks").style.display = "";
+    }
+
+    $("acModeBadgeText").textContent = isRubric ? "Rubric Mode" : "Generic Mode";
+    $("acModeBadge").querySelector("i").className = isRubric ? "fa-solid fa-table-list" : "fa-solid fa-sliders";
+
+    // Rubric criteria cards (modern design)
+    if (isRubric && (r.rubric_criteria || []).length) {
+      $("acRubricSection").style.display = "";
+      const container = $("acRubricCards");
+      container.innerHTML = "";
+      (r.rubric_criteria || []).forEach(c => {
+        const pct = c.max_marks ? Math.round((c.awarded_marks / c.max_marks) * 100) : 0;
+        const color = scoreColor(pct);
+        const band = (c.grade_band || "").toUpperCase();
+        const bandEmoji = {'A': '🌟', 'B': '✅', 'C': '⚡', 'D': '🔧', 'F': '🔧'}[band] || '•';
+
+        // Parse comment into bullet points (split by ., but keep sentences together)
+        const comment = c.comment || "";
+        const feedbackHTML = parseFeedbackComment(comment);
+
+        container.insertAdjacentHTML("beforeend", `
+          <div class="ac-rubric-card band-${band || 'F'}">
+            <div class="ac-rubric-card-header">
+              <div class="ac-rubric-card-title">
+                <span class="ac-rubric-card-icon">${getCriterionIcon(c.name)}</span>
+                ${escHtml(c.name || "")}
+              </div>
+              <div class="ac-rubric-card-score">
+                <div class="ac-rubric-score-circle">
+                  <svg width="48" height="48" style="transform:rotate(-90deg);">
+                    <circle cx="24" cy="24" r="20" fill="none" stroke="#f3f4f6" stroke-width="3.5"></circle>
+                    <circle cx="24" cy="24" r="20" fill="none" stroke="${color}" stroke-width="3.5"
+                            stroke-dasharray="${2 * Math.PI * 20}"
+                            stroke-dashoffset="${2 * Math.PI * 20 * (1 - pct / 100)}"
+                            style="transition: stroke-dashoffset 1s ease;"></circle>
+                  </svg>
+                  <div class="ac-rubric-score-text">
+                    <span class="ac-rubric-score-num">${pct}%</span>
+                    <span class="ac-rubric-score-label">${c.awarded_marks ?? "—"}/${c.max_marks ?? "—"}</span>
+                  </div>
+                </div>
+                <span class="ac-rubric-band-badge band-${band || 'F'}">${bandEmoji} ${escHtml(c.band_label || band || "—")}</span>
+              </div>
+            </div>
+            <div class="ac-rubric-feedback">
+              ${feedbackHTML}
+            </div>
+          </div>`);
+      });
+    } else if (!isRubric) {
+      // Generic criteria - reduced to 3 key areas
+      $("acCriteriaGrid").style.display = "";
+      const criteriaNames = {
+        content_quality:"Content & Understanding",
+        structure:"Structure & Clarity",
+        critical_thinking:"Analysis & Depth",
+      };
+      const criteriaIcons = {
+        content_quality:"fa-layer-group",
+        structure:"fa-sitemap",
+        critical_thinking:"fa-brain",
+      };
+      const grid = $("acCriteriaGrid");
+      grid.innerHTML = "";
+      const scores = r.criteria_scores || {};
+      Object.entries(criteriaNames).forEach(([key, label]) => {
+        const d = scores[key] || {};
+        const score = d.score ?? 0;
+        const color = scoreColor(score);
+        grid.insertAdjacentHTML("beforeend", `
+          <div class="ac-criterion">
+            <div class="ac-criterion-hdr">
+              <span class="ac-criterion-name"><i class="fa-solid ${criteriaIcons[key]}" style="margin-right:.3rem;color:${color};"></i>${label}</span>
+              <span class="ac-criterion-score" style="color:${color};">${score}</span>
+            </div>
+            <div class="ac-criterion-bar">
+              <div class="ac-criterion-fill" style="width:${score}%;background:${color};"></div>
+            </div>
+            <div class="ac-criterion-comment">${escHtml(d.comment || "")}</div>
+          </div>`);
+      });
+    }
+
+    // Strengths / Weaknesses (max 3 each)
+    const sl = $("acStrengths"); sl.innerHTML = "";
+    (r.strengths || []).slice(0, 3).forEach(s => { const li = document.createElement("li"); li.textContent = s; sl.appendChild(li); });
+    if (!sl.children.length) sl.innerHTML = "<li>No strengths identified.</li>";
+
+    const wl = $("acWeaknesses"); wl.innerHTML = "";
+    (r.weaknesses || []).slice(0, 3).forEach(w => { const li = document.createElement("li"); li.textContent = w; wl.appendChild(li); });
+    if (!wl.children.length) wl.innerHTML = "<li>No significant weaknesses identified.</li>";
+
+    // Improvements
+    const impList = $("acImprovements"); impList.innerHTML = "";
+    const improvements = r.improvements || r.specific_improvements || [];
+    improvements.forEach(imp => {
+      const text = typeof imp === 'string' ? imp : (imp.suggestion || imp);
+      const li = document.createElement("li");
+      li.textContent = text;
+      impList.appendChild(li);
+    });
+    if (!impList.children.length) impList.innerHTML = '<li style="color:#6b7280;">No specific improvements listed.</li>';
+
+    resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ── Section toggles ───────────────────────────────────────────────────────
+  document.querySelectorAll(".ac-section-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const body = document.getElementById(btn.dataset.target);
+      if (!body) return;
+      const hidden = body.classList.toggle("hidden");
+      btn.classList.toggle("collapsed", hidden);
+    });
+  });
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+  resetBtn.addEventListener("click", () => hideResults(true));
+
+  function hideResults(showCheckView) {
+    resultsEl.classList.remove("visible");
+    $("acOffTopicAlert").classList.remove("visible");
+    $("acRubricSection").style.display    = "none";
+    $("acCriteriaGrid").style.display     = "none";
+    $("acScoreMarks").style.display       = "none";
+    $("acHistoryResultBar").style.display = "none";
+    inputCards.forEach(c => { if (c) c.style.display = ""; });
+    stepLabels.forEach(l => l.style.display = "");
+    hideError();
+    if (showCheckView) switchView("check");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  $("acHistoryResultBack").addEventListener("click", () => {
+    hideResults(false);
+    switchView("history");
+  });
+
+  // ── Safe JSON helper ──────────────────────────────────────────────────────
+  async function _safeJson(resp) {
+    if (resp.status === 401) throw new Error("__session_expired__");
+    const ct = resp.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) throw new Error("Unable to load history. Please refresh the page and try again.");
+    return resp.json();
+  }
+
+  // ── History ───────────────────────────────────────────────────────────────
+  let historyLoaded = false;
+
+  async function loadHistory(force = false) {
+    if (historyLoaded && !force) return;
+    $("acHistoryLoading").style.display = "";
+    $("acHistoryContent").style.display = "none";
+    try {
+      const resp = await fetch("/assignment-checker/history");
+      const data = await _safeJson(resp);
+      if (!data.ok) throw new Error(data.error);
+      historyLoaded = true;
+      renderHistoryList(data.history || []);
+    } catch (e) {
+      const isExpired = e.message === "__session_expired__";
+      $("acHistoryLoading").innerHTML = `
+        <div class="ac-history-empty">
+          <div class="ac-history-empty-icon" style="background:#fffbeb;">
+            <i class="fa-solid fa-circle-exclamation" style="color:#d97706;"></i>
+          </div>
+          <h3 style="color:#92400e;">${isExpired ? "Session Expired" : "Something went wrong"}</h3>
+          <p>${isExpired ? "Your session has expired. Please log in again." : escHtml(e.message)}</p>
+          ${isExpired
+            ? `<a class="ac-history-empty-btn" href="/login" style="text-decoration:none;"><i class="fa-solid fa-right-to-bracket"></i> Log In</a>`
+            : `<button class="ac-history-empty-btn" style="background:#d97706;" onclick="loadHistory(true)"><i class="fa-solid fa-rotate-right"></i> Try Again</button>`}
+        </div>`;
+    }
+  }
+
+  function renderHistoryList(items) {
+    $("acHistoryLoading").style.display = "none";
+    const cnt = $("acHistoryContent");
+    cnt.style.display = "";
+
+    const badge = $("acHistoryCount");
+    if (items.length) { badge.style.display = ""; badge.textContent = items.length; }
+    else              { badge.style.display = "none"; }
+
+    if (!items.length) {
+      cnt.innerHTML = `
+        <div class="ac-history-empty">
+          <div class="ac-history-empty-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+          <h3>No checks yet</h3>
+          <p>Your checked assignments will appear here.<br>Run your first check to get started.</p>
+          <button class="ac-history-empty-btn" onclick="switchView('check')">
+            <i class="fa-solid fa-magnifying-glass"></i> Check an Assignment
+          </button>
+        </div>`;
+      return;
+    }
+
+    const listHtml = items.map(item => {
+      const score    = item.overall_score ?? "—";
+      const grade    = item.grade ?? "";
+      const pct      = typeof item.overall_score === "number" ? item.overall_score : null;
+      const color    = pct !== null ? scoreColor(pct) : "#9ca3af";
+      const bgColor  = pct !== null ? scoreColor(pct) + "18" : "#f3f4f6";
+      const modeLabel = item.rubric_mode ? "Rubric" : "Generic";
+      const modeClass = item.rubric_mode ? "rubric" : "generic";
+      const marksLabel = (item.rubric_mode && item.total_marks_awarded != null)
+        ? `${item.total_marks_awarded}/${item.total_marks_possible} marks`
+        : `${score}/100`;
+      return `
+        <div class="ac-history-item" data-id="${item.history_id}" onclick="openHistoryEntry(${item.history_id}, '${escHtml(item.title)}')">
+          <div class="ac-history-score" style="background:${bgColor};color:${color};">
+            <span class="hs-num">${grade || score}</span>
+            <span class="hs-pct">${marksLabel}</span>
+          </div>
+          <div class="ac-history-body">
+            <div class="ac-history-title">${escHtml(item.title || "Untitled")}</div>
+            <div class="ac-history-meta">
+              <span>${formatDate(item.created_at)}</span>
+              <span class="ac-hbadge ${modeClass}"><i class="fa-solid fa-${item.rubric_mode ? 'table-list' : 'sliders'}"></i> ${modeLabel}</span>
+            </div>
+          </div>
+          <button class="ac-history-del" onclick="deleteHistoryEntry(event, ${item.history_id})" title="Delete">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>`;
+    }).join("");
+    cnt.innerHTML = `<div class="ac-history-list">${listHtml}</div>`;
+  }
+
+  window.openHistoryEntry = async function(historyId, title) {
+    try {
+      const resp = await fetch(`/assignment-checker/history/${historyId}`);
+      const data = await _safeJson(resp);
+      if (!data.ok) throw new Error(data.error);
+
+      $("acHistoryPanel").classList.remove("visible");
+      $("acViewCheck").classList.add("active");
+      $("acViewHistory").classList.remove("active");
+      inputCards.forEach(c => { if (c) c.style.display = "none"; });
+      stepLabels.forEach(l => l.style.display = "none");
+
+      $("acHistoryResultTitle").textContent = title;
+      $("acHistoryResultBar").style.display = "";
+      renderResults(data.entry.result || {});
+    } catch (e) {
+      alert("Could not load entry: " + e.message);
+    }
+  };
+
+  window.deleteHistoryEntry = function(evt, historyId) {
+    evt.stopPropagation();
+    const delBtn = evt.currentTarget;
+    const item   = delBtn.closest(".ac-history-item");
+    if (!item) return;
+    delBtn.style.display = "none";
+    const confirm = document.createElement("div");
+    confirm.className = "ac-history-confirm";
+    confirm.innerHTML = `
+      <span>Delete?</span>
+      <button class="ac-confirm-del">Delete</button>
+      <button class="ac-confirm-cancel">Cancel</button>`;
+    confirm.querySelector(".ac-confirm-cancel").addEventListener("click", e => {
+      e.stopPropagation(); confirm.remove(); delBtn.style.display = "";
+    });
+    confirm.querySelector(".ac-confirm-del").addEventListener("click", async e => {
+      e.stopPropagation();
+      try {
+        await fetch(`/assignment-checker/history/${historyId}`, { method: "DELETE" });
+        historyLoaded = false;
+        loadHistory(true);
+      } catch { confirm.remove(); delBtn.style.display = ""; }
+    });
+    item.appendChild(confirm);
+  };
+
+  function formatDate(ts) {
+    if (!ts) return "";
+    try {
+      const d = new Date(ts.replace(" ", "T") + (ts.includes("T") ? "" : "Z"));
+      return d.toLocaleDateString(undefined, { day:"numeric", month:"short", year:"numeric" })
+           + " " + d.toLocaleTimeString(undefined, { hour:"2-digit", minute:"2-digit" });
+    } catch { return ts; }
+  }
+
+  // ── View switching ────────────────────────────────────────────────────────
+  window.switchView = function(view) {
+    const checkActive = view === "check";
+    $("acViewCheck").classList.toggle("active", checkActive);
+    $("acViewHistory").classList.toggle("active", !checkActive);
+    inputCards.forEach(c => { if (c) c.style.display = checkActive ? "" : "none"; });
+    stepLabels.forEach(l => l.style.display = checkActive ? "" : "none");
+    const hp = $("acHistoryPanel");
+    if (!checkActive) { hp.classList.add("visible"); loadHistory(); }
+    else              { hp.classList.remove("visible"); }
+    if (!checkActive) resultsEl.classList.remove("visible");
+  };
+
+  // Refresh badge on load
+  (async function initHistoryBadge() {
+    try {
+      const resp = await fetch("/assignment-checker/history");
+      const data = await _safeJson(resp);
+      if (data.ok && data.history.length) {
+        const badge = $("acHistoryCount");
+        badge.style.display = "";
+        badge.textContent = data.history.length;
+      }
+    } catch { /* ignore */ }
+  })();
+
+})();
+</script>
+{% endblock %}

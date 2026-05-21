@@ -1,0 +1,1216 @@
+{% extends "base.html" %}
+
+{% block title %}Upload | SmartEdu{% endblock %}
+
+{% block content %}
+<link  rel="stylesheet" href="{{ url_for('static', filename='css/upload_wizard.css') }}">
+
+<section class="upload-page">
+
+    <!-- Hero -->
+    <div class="upload-hero">
+        <span class="eyebrow">Smart Study Planner</span>
+        <h1>Set Up Your Study Plan</h1>
+        <p class="hero-text">
+            Follow the steps below to upload your timetables and personalise how SmartEdu plans your week.
+        </p>
+    </div>
+
+    <!-- Saved-data summary -->
+    {% if existing_preferences or existing_modules %}
+    <div class="premium-summary" id="detailedSavedSummary">
+        <div class="premium-header">
+            <h2 class="premium-title">Your Current Study Plan Settings</h2>
+            <button type="button" class="premium-btn" id="showUploadWizardBtn">
+                <i class="fa-solid fa-pen-to-square"></i> Re-Upload / Edit Plan
+            </button>
+        </div>
+
+        <div class="premium-grid">
+            <!-- Files Card -->
+            <div class="p-card">
+                <div class="p-card-head">
+                    <span class="p-icon"><i class="fa-solid fa-folder-open"></i></span>
+                    <span class="p-card-title">Uploaded Files</span>
+                </div>
+                <div class="p-card-body">
+                    {% if uploaded_files %}
+                        <ul class="p-file-list">
+                        {% for f in uploaded_files %}
+                            <li class="p-file-item">
+                                <span class="p-file-name" title="{{ f.original_filename }}">{{ f.original_filename }}</span>
+                                {% if f.file_role == 'class_timetable' %} 
+                                    <span class="p-badge p-badge-primary">Class Timetable</span>
+                                {% else %} 
+                                    <span class="p-badge p-badge-secondary">Module File</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="p-empty">No files uploaded.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Study Style Card -->
+            <div class="p-card">
+                <div class="p-card-head">
+                    <span class="p-icon" style="background:#fefce8; color:#ca8a04;"><i class="fa-solid fa-bullseye"></i></span>
+                    <span class="p-card-title" style="flex:1;">Study Style</span>
+                    <button class="p-edit-btn" onclick="openModal('modal-preferences')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+                <div class="p-card-body">
+                    {% if existing_preferences %}
+                        <div class="p-data-row"><span class="p-data-key">Semester</span><span class="p-data-val">{{ existing_preferences.semester_start_date }} &rarr; {{ existing_preferences.semester_end_date }}</span></div>
+                        <div class="p-data-row"><span class="p-data-key">Intensity</span><span class="p-data-val" style="text-transform: capitalize;">{{ existing_preferences.study_intensity | default('—') }}</span></div>
+                        <div class="p-data-row"><span class="p-data-key">Study Time</span><span class="p-data-val">{{ existing_preferences.preferred_study_time | default('—') }}</span></div>
+                        <div class="p-data-row"><span class="p-data-key">Session Length</span><span class="p-data-val">{{ existing_preferences.session_length ~ ' min' if existing_preferences.session_length else '—' }}</span></div>
+                        <div class="p-data-row"><span class="p-data-key">Break Preference</span><span class="p-data-val" style="text-transform: capitalize;">{{ existing_preferences.break_preference | default('—') }}</span></div>
+                        <div class="p-data-row" style="border-bottom:none;"><span class="p-data-key">Study Days</span>
+                            <span class="p-tags">
+                                {% for day in (existing_preferences.study_days.split(',') if existing_preferences.study_days else []) %}
+                                    <span class="p-badge p-badge-app">{{ day }}</span>
+                                {% endfor %}
+                            </span>
+                        </div>
+                    {% else %}
+                        <p class="p-empty">No preferences saved.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Commitments Card -->
+            <div class="p-card">
+                <div class="p-card-head">
+                    <span class="p-icon" style="background:#fef2f2; color:#dc2626;"><i class="fa-regular fa-calendar-check"></i></span>
+                    <span class="p-card-title" style="flex:1;">Recurring Commitments</span>
+                    <button class="p-edit-btn" onclick="openModal('modal-commitments')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+                <div class="p-card-body">
+                    {% if occupied_times %}
+                        {% for occ in occupied_times %}
+                            <div class="p-commitment">
+                                <div class="p-comm-head">
+                                    <span class="p-comm-title">{{ occ.title }}</span>
+                                    <span class="p-comm-time">{{ occ.day_of_week }} &middot; {{ occ.start_time }}</span>
+                                </div>
+                                <span class="p-comm-time" style="display:inline-block; margin-bottom:4px; padding: 2px 6px; font-size:0.75rem; background:#f1f5f9; color:#475569;">To: {{ occ.end_time }}</span>
+                                {% if occ.notes %}
+                                    <div class="p-comm-note">{{ occ.notes }}</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="p-empty">No recurring commitments added.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Study Apps Card -->
+            <div class="p-card">
+                <div class="p-card-head">
+                    <span class="p-icon" style="background:#f0fdf4; color:#16a34a;"><i class="fa-solid fa-laptop-code"></i></span>
+                    <span class="p-card-title" style="flex:1;">Study Apps</span>
+                    <button class="p-edit-btn" onclick="openModal('modal-apps')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+                <div class="p-card-body">
+                    {% if existing_study_apps %}
+                        <div class="p-tags">
+                        {% for app in existing_study_apps %}
+                            <span class="p-badge p-badge-app" title="{{ app.type }} - {{ app.purpose }}">
+                                {{ app.name }}
+                            </span>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="p-empty">No study apps selected.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- WIZARD FORM -->
+    <div id="uploadWizardContainer" {% if existing_preferences or existing_modules %}style="display: none;"{% endif %}>
+    <form
+        class="upload-form-card"
+        action="{{ url_for('upload.upload') }}"
+        method="post"
+        enctype="multipart/form-data"
+        id="studyPlanForm"
+        novalidate
+    >
+        <!-- ── Step Rail (divs, not buttons) ── -->
+        <div class="wizard-rail" id="wizardRail">
+            <div class="wz-step active" data-step="0">
+                <div class="wz-bubble"><span class="wz-num">1</span><span class="wz-check">✓</span></div>
+                <div class="wz-label">Academic Files</div>
+            </div>
+            <div class="wz-connector" id="conn-0-1"></div>
+            <div class="wz-step" data-step="1">
+                <div class="wz-bubble"><span class="wz-num">2</span><span class="wz-check">✓</span></div>
+                <div class="wz-label">Study Style</div>
+            </div>
+            <div class="wz-connector" id="conn-1-2"></div>
+            <div class="wz-step" data-step="2">
+                <div class="wz-bubble"><span class="wz-num">3</span><span class="wz-check">✓</span></div>
+                <div class="wz-label">Commitments</div>
+            </div>
+            <div class="wz-connector" id="conn-2-3"></div>
+            <div class="wz-step" data-step="3">
+                <div class="wz-bubble"><span class="wz-num">4</span><span class="wz-check">✓</span></div>
+                <div class="wz-label">Study Apps</div>
+            </div>
+            <div class="wz-connector" id="conn-3-4"></div>
+            <div class="wz-step" data-step="4">
+                <div class="wz-bubble"><span class="wz-num">5</span><span class="wz-check">✓</span></div>
+                <div class="wz-label">Review</div>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="wz-progress-track">
+            <div class="wz-progress-fill" id="wizardProgressFill"></div>
+        </div>
+
+        <!-- ════════════════════════════════
+             STEP 1 · Academic Files
+        ════════════════════════════════ -->
+        <div class="wz-panel active" id="panel-0">
+            <div class="wz-panel-header">
+                <h2>Upload your timetables</h2>
+                <p>We need your class schedule and individual module files to build your study plan.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="field-label">Class Timetable <span class="required-star">*</span></label>
+                <label class="upload-box drag-upload" id="classDropZone">
+                    <input type="file" id="class_timetable" name="class_timetable" accept=".csv,.xlsx,.pdf">
+                    <div class="upload-box-content">
+                        <div class="upload-icon"><i class="fa-solid fa-file-arrow-up"></i></div>
+                        <h3>Drop file here or click to upload</h3>
+                        <p class="helper-text">Accepted: .csv, .xlsx, .pdf</p>
+                    </div>
+                </label>
+                <div class="selected-files" id="classFileList"></div>
+                <div class="error-text" id="classFileError"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="field-label">Module Timetables <span class="required-star">*</span></label>
+                <label class="upload-box drag-upload" id="moduleDropZone">
+                    <input type="file" id="module_timetables" name="module_timetables" accept=".csv,.xlsx,.pdf" multiple>
+                    <div class="upload-box-content">
+                        <div class="upload-icon"><i class="fa-solid fa-layer-group"></i></div>
+                        <h3>Drop module files here or click to upload</h3>
+                        <p class="helper-text">Name each file like: <strong>IT1123-Database Design &amp; Administration.pdf</strong></p>
+                    </div>
+                </label>
+                <div class="error-text" id="moduleFileError"></div>
+            </div>
+
+            <div class="form-group" id="modulePreviewGroup" style="display:none;">
+                <label class="field-label">Module File Preview</label>
+                <div class="table-wrap">
+                    <table class="preview-table" id="modulePreviewTable">
+                        <thead>
+                            <tr>
+                                <th>File Name</th>
+                                <th>Module Code</th>
+                                <th>Module Name</th>
+                                <th class="actions-col">Remove</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modulePreviewBody"></tbody>
+                    </table>
+                </div>
+                <p class="helper-text">Auto-filled from filename — edit as needed.</p>
+            </div>
+
+            <div class="two-col">
+                <div class="form-group">
+                    <label for="semester_start_date" class="field-label">Semester Start Date <span class="required-star">*</span></label>
+                    <input type="date" id="semester_start_date" name="semester_start_date" class="form-input"
+                        value="{{ existing_preferences.semester_start_date if existing_preferences else '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="semester_end_date" class="field-label">Semester End / Exam Date <span class="required-star">*</span></label>
+                    <input type="date" id="semester_end_date" name="semester_end_date" class="form-input"
+                        value="{{ existing_preferences.semester_end_date if existing_preferences else '' }}">
+                    <p class="helper-text">Used to calculate how many study weeks remain.</p>
+                </div>
+            </div>
+
+            <div class="wz-nav">
+                <span></span>
+                <button type="button" class="btn btn-primary" id="next0">
+                    Next: Study Style <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+             STEP 2 · Study Style
+        ════════════════════════════════ -->
+        <div class="wz-panel" id="panel-1">
+            <div class="wz-panel-header">
+                <h2>How do you like to study?</h2>
+                <p>These settings shape how SmartEdu schedules your week. You can update them any time.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="field-label">How seriously are you studying this semester? <span class="required-star">*</span></label>
+                <p class="helper-text" style="margin-top:0; margin-bottom:14px;">This determines how many hours SmartEdu schedules each week.</p>
+                <div class="intensity-grid" id="intensityGrid">
+                    <label class="intensity-card {% if existing_preferences and existing_preferences.study_intensity == 'relaxed' %}selected{% endif %}">
+                        <input type="radio" name="study_intensity" value="relaxed" {% if existing_preferences and existing_preferences.study_intensity == 'relaxed' %}checked{% endif %}>
+                        <span class="intensity-emoji">🌱</span>
+                        <span class="intensity-title">Just Keeping Up</span>
+                        <span class="intensity-desc">Attending class and reviewing notes. ~10–15 hrs/week.</span>
+                    </label>
+                    <label class="intensity-card {% if existing_preferences and existing_preferences.study_intensity == 'balanced' %}selected{% endif %}">
+                        <input type="radio" name="study_intensity" value="balanced" {% if existing_preferences and existing_preferences.study_intensity == 'balanced' %}checked{% endif %}>
+                        <span class="intensity-emoji">📖</span>
+                        <span class="intensity-title">Steady Progress</span>
+                        <span class="intensity-desc">Consistent study with buffer for life. ~16–25 hrs/week.</span>
+                    </label>
+                    <label class="intensity-card {% if existing_preferences and existing_preferences.study_intensity == 'focused' %}selected{% endif %}">
+                        <input type="radio" name="study_intensity" value="focused" {% if existing_preferences and existing_preferences.study_intensity == 'focused' %}checked{% endif %}>
+                        <span class="intensity-emoji">🔥</span>
+                        <span class="intensity-title">High Effort</span>
+                        <span class="intensity-desc">Pushing for good grades. ~26–35 hrs/week.</span>
+                    </label>
+                    <label class="intensity-card {% if existing_preferences and existing_preferences.study_intensity == 'intensive' %}selected{% endif %}">
+                        <input type="radio" name="study_intensity" value="intensive" {% if existing_preferences and existing_preferences.study_intensity == 'intensive' %}checked{% endif %}>
+                        <span class="intensity-emoji">🚀</span>
+                        <span class="intensity-title">Full Grind</span>
+                        <span class="intensity-desc">Maximum effort, exam-season hustle. ~36+ hrs/week.</span>
+                    </label>
+                </div>
+                <div class="error-text" id="intensityError"></div>
+            </div>
+
+            <hr class="wz-divider">
+
+            <div class="two-col">
+                <div class="form-group">
+                    <label for="preferred_study_time" class="field-label">Preferred Study Time <span class="required-star">*</span></label>
+                    <select id="preferred_study_time" name="preferred_study_time" class="form-input">
+                        <option value="">Select preferred time</option>
+                        <option value="Morning"   {% if existing_preferences and existing_preferences.preferred_study_time == 'Morning'   %}selected{% endif %}>🌅 Morning</option>
+                        <option value="Afternoon" {% if existing_preferences and existing_preferences.preferred_study_time == 'Afternoon' %}selected{% endif %}>☀️ Afternoon</option>
+                        <option value="Night"     {% if existing_preferences and existing_preferences.preferred_study_time == 'Night'     %}selected{% endif %}>🌙 Night</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="session_length" class="field-label">Study Session Length <span class="required-star">*</span></label>
+                    <select id="session_length" name="session_length" class="form-input">
+                        <option value="">Select session length</option>
+                        <option value="25"  {% if existing_preferences and existing_preferences.session_length == '25'  %}selected{% endif %}>⏱ 25 min — Pomodoro style</option>
+                        <option value="45"  {% if existing_preferences and existing_preferences.session_length == '45'  %}selected{% endif %}>⏱ 45 min — Focused sprint</option>
+                        <option value="60"  {% if existing_preferences and existing_preferences.session_length == '60'  %}selected{% endif %}>⏱ 60 min — One solid hour</option>
+                        <option value="90"  {% if existing_preferences and existing_preferences.session_length == '90'  %}selected{% endif %}>⏱ 90 min — Deep work block</option>
+                    </select>
+                    <p class="helper-text">How long each study block lasts before a break.</p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="field-label">Break Between Sessions <span class="required-star">*</span></label>
+                <p class="helper-text" style="margin-top:0; margin-bottom:14px;">How long do you rest between study blocks?</p>
+                <div class="break-options" id="breakOptions">
+                    <label class="break-card {% if existing_preferences and existing_preferences.break_preference == 'short' %}selected{% endif %}">
+                        <input type="radio" name="break_preference" value="short" {% if existing_preferences and existing_preferences.break_preference == 'short' %}checked{% endif %}>
+                        <span class="break-title">Short</span>
+                        <span class="break-desc">5 min — stay in the zone</span>
+                    </label>
+                    <label class="break-card {% if existing_preferences and existing_preferences.break_preference == 'medium' %}selected{% endif %}">
+                        <input type="radio" name="break_preference" value="medium" {% if existing_preferences and existing_preferences.break_preference == 'medium' %}checked{% endif %}>
+                        <span class="break-title">Medium</span>
+                        <span class="break-desc">10–15 min — recharge properly</span>
+                    </label>
+                    <label class="break-card {% if existing_preferences and existing_preferences.break_preference == 'long' %}selected{% endif %}">
+                        <input type="radio" name="break_preference" value="long" {% if existing_preferences and existing_preferences.break_preference == 'long' %}checked{% endif %}>
+                        <span class="break-title">Long</span>
+                        <span class="break-desc">20–30 min — full reset</span>
+                    </label>
+                </div>
+                <div class="error-text" id="breakError"></div>
+            </div>
+
+
+
+            <div class="wz-nav">
+                <button type="button" class="btn btn-secondary" id="back1">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+                <button type="button" class="btn btn-primary" id="next1">
+                    Next: Commitments <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+             STEP 3 · Recurring Commitments
+        ════════════════════════════════ -->
+        <div class="wz-panel" id="panel-2">
+            <div class="wz-panel-header">
+                <h2>Recurring commitments</h2>
+                <p>Block out time for your job, CCA, gym, or anything else that repeats weekly. SmartEdu will never schedule over these.</p>
+            </div>
+
+            <div class="wz-notice">
+                <i class="fa-solid fa-circle-info"></i>
+                <span><strong>Optional.</strong> If your time outside class is flexible, you can skip this step.</span>
+            </div>
+
+            <div class="form-group">
+                <div class="occupied-list" id="occupiedList">
+                    <div class="occupied-empty" id="occupiedEmptyState">
+                        <i class="fa-regular fa-calendar"></i>
+                        <span>No recurring blocks added yet.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card add-block-card">
+                <p class="field-label" style="margin-bottom:16px;">Add a Recurring Block</p>
+                <div class="two-col" style="margin-bottom:14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="ot_title" class="field-label">Title</label>
+                        <input type="text" id="ot_title" class="form-input" placeholder="e.g. Part-time Job, Basketball, Gym">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="ot_category" class="field-label">Category</label>
+                        <select id="ot_category" class="form-input">
+                            <option value="Work">💼 Work / Part-time Job</option>
+                            <option value="CCA">🏆 CCA / Club</option>
+                            <option value="Exercise">🏃 Exercise / Gym</option>
+                            <option value="Family">🏠 Family Commitment</option>
+                            <option value="Religious">🕌 Religious / Spiritual</option>
+                            <option value="Other">📌 Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="three-col" style="margin-bottom:14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="ot_day" class="field-label">Day of Week</label>
+                        <select id="ot_day" class="form-input">
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                            <option value="Sunday">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="ot_start" class="field-label">Start Time</label>
+                        <input type="time" id="ot_start" class="form-input">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="ot_end" class="field-label">End Time</label>
+                        <input type="time" id="ot_end" class="form-input">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label for="ot_notes" class="field-label">Notes <span style="font-weight:500; color:var(--muted);">(optional)</span></label>
+                    <input type="text" id="ot_notes" class="form-input" placeholder="e.g. Every week, sometimes runs late">
+                </div>
+                <div class="error-text" id="occupiedTimesError" style="margin-bottom:8px;"></div>
+                <div class="add-block-actions">
+                    <button type="button" class="btn btn-secondary" id="clearOccupiedBtn" style="width:auto;">Clear Fields</button>
+                    <button type="button" class="btn btn-primary"   id="addOccupiedBtn"   style="width:auto;">
+                        <i class="fa-solid fa-plus"></i> Add Block
+                    </button>
+                </div>
+            </div>
+
+            <div id="hiddenOccupiedFields"></div>
+
+            <div class="wz-nav">
+                <button type="button" class="btn btn-secondary" id="back2">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+                <button type="button" class="btn btn-primary" id="next2">
+                    Next: Study Apps <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+             STEP 4 · Study Apps
+        ════════════════════════════════ -->
+        <div class="wz-panel" id="panel-3">
+            <div class="wz-panel-header">
+                <h2>Study apps &amp; websites</h2>
+                <p>Pick the tools you actually use to study. SmartEdu tracks these to measure real study time accurately.</p>
+            </div>
+
+            <!-- Tray -->
+            <div class="form-group">
+                <div class="apps-tray-label">
+                    Your Selected Apps
+                    <span class="app-count-badge" id="appCountBadge" style="display:none;"></span>
+                </div>
+                <div class="selected-apps-tray" id="selectedAppsTray">
+                    <span class="tray-placeholder" id="trayPlaceholder">No apps selected yet — choose from the list below or add manually.</span>
+                </div>
+                <div class="error-text" id="studyAppError" style="margin-top:6px;"></div>
+            </div>
+
+            <!-- Accordion categories (divs as headers, NOT buttons) -->
+            <div class="form-group">
+                <label class="field-label" style="margin-bottom:12px; display:block;">Quick Add by Category</label>
+                <div class="app-accordion" id="appAccordion">
+
+                    <div class="acc-section">
+                        <div class="acc-header open" data-acc="0">
+                            <span>📚 Study Apps</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                        </div>
+                        <div class="acc-body open">
+                            <div class="acc-chips">
+                                <label class="app-chip"><input type="checkbox" data-name="Notion"     data-type="both"    data-identifier="notion.so"      data-purpose="notes and planning"><span>Notion</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Evernote"   data-type="both"    data-identifier="evernote.com"   data-purpose="note-taking"><span>Evernote</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="OneNote"    data-type="both"    data-identifier="onenote.exe"    data-purpose="note-taking"><span>OneNote</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Notability" data-type="desktop" data-identifier="Notability.exe" data-purpose="note-taking"><span>Notability</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Obsidian"   data-type="desktop" data-identifier="Obsidian.exe"   data-purpose="knowledge management"><span>Obsidian</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="acc-section">
+                        <div class="acc-header" data-acc="1">
+                            <span>🤖 AI Tools</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                        </div>
+                        <div class="acc-body">
+                            <div class="acc-chips">
+                                <label class="app-chip"><input type="checkbox" data-name="ChatGPT"   data-type="website" data-identifier="chatgpt.com"          data-purpose="AI assistance"><span>ChatGPT</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Claude"    data-type="website" data-identifier="claude.ai"             data-purpose="AI assistance"><span>Claude</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Gemini"    data-type="website" data-identifier="gemini.google.com"     data-purpose="AI assistance"><span>Gemini</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="DeepSeek"  data-type="website" data-identifier="deepseek.com"          data-purpose="AI assistance"><span>DeepSeek</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Copilot"   data-type="website" data-identifier="copilot.microsoft.com" data-purpose="AI assistance"><span>Copilot</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Grammarly" data-type="both"    data-identifier="grammarly.com"         data-purpose="grammar checking"><span>Grammarly</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Quillbot"  data-type="website" data-identifier="quillbot.com"          data-purpose="paraphrasing"><span>Quillbot</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="acc-section">
+                        <div class="acc-header" data-acc="2">
+                            <span>📂 Productivity</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                        </div>
+                        <div class="acc-body">
+                            <div class="acc-chips">
+                                <label class="app-chip"><input type="checkbox" data-name="Google Docs"  data-type="website" data-identifier="docs.google.com"  data-purpose="writing reports"><span>Google Docs</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Google Drive" data-type="website" data-identifier="drive.google.com" data-purpose="file storage"><span>Google Drive</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Word"         data-type="desktop" data-identifier="WINWORD.EXE"      data-purpose="assignment writing"><span>Word</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Excel"        data-type="desktop" data-identifier="EXCEL.EXE"        data-purpose="data analysis"><span>Excel</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="PowerPoint"   data-type="desktop" data-identifier="POWERPNT.EXE"     data-purpose="presentations"><span>PowerPoint</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="MyStudyLife"  data-type="website" data-identifier="mystudylife.com"  data-purpose="schedule planning"><span>MyStudyLife</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="acc-section">
+                        <div class="acc-header" data-acc="3">
+                            <span>🔁 Flashcards</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                        </div>
+                        <div class="acc-body">
+                            <div class="acc-chips">
+                                <label class="app-chip"><input type="checkbox" data-name="Anki"      data-type="desktop" data-identifier="anki.exe"      data-purpose="flashcard studying"><span>Anki</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Quizlet"   data-type="website" data-identifier="quizlet.com"   data-purpose="flashcard studying"><span>Quizlet</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="StudyBlue" data-type="website" data-identifier="studyblue.com" data-purpose="flashcard studying"><span>StudyBlue</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="acc-section">
+                        <div class="acc-header" data-acc="4">
+                            <span>🌐 Learning</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                        </div>
+                        <div class="acc-body">
+                            <div class="acc-chips">
+                                <label class="app-chip"><input type="checkbox" data-name="YouTube"        data-type="website" data-identifier="youtube.com"        data-purpose="video learning"><span>YouTube</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Coursera"       data-type="website" data-identifier="coursera.org"       data-purpose="online courses"><span>Coursera</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="edX"            data-type="website" data-identifier="edx.org"            data-purpose="online courses"><span>edX</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Khan Academy"   data-type="website" data-identifier="khanacademy.org"    data-purpose="learning concepts"><span>Khan Academy</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Chegg"          data-type="website" data-identifier="chegg.com"          data-purpose="homework help"><span>Chegg</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="CourseHero"     data-type="website" data-identifier="coursehero.com"     data-purpose="study resources"><span>CourseHero</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Google Scholar" data-type="website" data-identifier="scholar.google.com" data-purpose="academic research"><span>Google Scholar</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="acc-section">
+                        <div class="acc-header" data-acc="5">
+                            <span>💻 Programming</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                        </div>
+                        <div class="acc-body">
+                            <div class="acc-chips">
+                                <label class="app-chip"><input type="checkbox" data-name="VS Code"        data-type="desktop" data-identifier="Code.exe"          data-purpose="coding"><span>VS Code</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="GitHub"         data-type="website" data-identifier="github.com"        data-purpose="version control"><span>GitHub</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Stack Overflow" data-type="website" data-identifier="stackoverflow.com" data-purpose="coding help"><span>Stack Overflow</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Replit"         data-type="website" data-identifier="replit.com"        data-purpose="coding practice"><span>Replit</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="LeetCode"       data-type="website" data-identifier="leetcode.com"      data-purpose="coding problems"><span>LeetCode</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="acc-section">
+                        <div class="acc-header" data-acc="6">
+                            <span>🌍 Language</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                        </div>
+                        <div class="acc-body">
+                            <div class="acc-chips">
+                                <label class="app-chip"><input type="checkbox" data-name="Duolingo"         data-type="both"    data-identifier="duolingo.com"         data-purpose="language learning"><span>Duolingo</span></label>
+                                <label class="app-chip"><input type="checkbox" data-name="Google Translate" data-type="website" data-identifier="translate.google.com" data-purpose="translation"><span>Google Translate</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Manual add -->
+            <div class="card" style="padding:18px; margin-top:4px;">
+                <label class="field-label" style="margin-bottom:14px; display:block;">Add Manually</label>
+                <div class="two-col" style="margin-bottom:14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="study_app_name" class="field-label">App / Website Name</label>
+                        <input type="text" id="study_app_name" class="form-input" placeholder="e.g. VS Code, Notion">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="study_app_type" class="field-label">Type</label>
+                        <select id="study_app_type" class="form-input">
+                            <option value="desktop">Desktop App</option>
+                            <option value="website">Website</option>
+                            <option value="both">Both</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="two-col" style="margin-bottom:14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="study_app_identifier" class="field-label">Tracking Match</label>
+                        <input type="text" id="study_app_identifier" class="form-input" placeholder="e.g. code.exe or docs.google.com">
+                        <p class="helper-text">Process name for desktop apps, or the domain for websites.</p>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="study_app_purpose" class="field-label">Purpose</label>
+                        <input type="text" id="study_app_purpose" class="form-input" placeholder="e.g. coding, note-taking">
+                    </div>
+                </div>
+                <div class="add-block-actions">
+                    <button type="button" class="btn btn-secondary" id="clearStudyAppInputsBtn" style="width:auto;">Clear Fields</button>
+                    <button type="button" class="btn btn-primary"   id="addStudyAppBtn"         style="width:auto;">
+                        <i class="fa-solid fa-plus"></i> Add App
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hidden fields -->
+            <div id="hiddenModuleFields"></div>
+            <div id="hiddenStudyAppFields"></div>
+
+            <div class="wz-nav">
+                <button type="button" class="btn btn-secondary" id="back3">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+                <button type="button" class="btn btn-primary" id="next3">
+                    Review &amp; Save <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+             STEP 5 · Review
+        ════════════════════════════════ -->
+        <div class="wz-panel" id="panel-4">
+            <div class="wz-panel-header">
+                <h2>Review &amp; save</h2>
+                <p>Check everything looks right. Click any Edit button to go back and make changes.</p>
+            </div>
+
+            <div class="premium-grid">
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-icon">📁</div>
+                        <span class="p-card-title">Academic Files</span>
+                        <button type="button" class="p-edit-btn" id="editFiles">Edit</button>
+                    </div>
+                    <div class="p-card-body" id="reviewFilesBody"></div>
+                </div>
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-icon">🎯</div>
+                        <span class="p-card-title">Study Style</span>
+                        <button type="button" class="p-edit-btn" id="editStyle">Edit</button>
+                    </div>
+                    <div class="p-card-body" id="reviewStyleBody"></div>
+                </div>
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-icon">🗓</div>
+                        <span class="p-card-title">Commitments</span>
+                        <button type="button" class="p-edit-btn" id="editCommitments">Edit</button>
+                    </div>
+                    <div class="p-card-body" id="reviewCommitmentsBody"></div>
+                </div>
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-icon">🖥</div>
+                        <span class="p-card-title">Study Apps</span>
+                        <button type="button" class="p-edit-btn" id="editApps">Edit</button>
+                    </div>
+                    <div class="p-card-body" id="reviewAppsBody"></div>
+                </div>
+            </div>
+
+            <div class="wz-nav">
+                <button type="button" class="btn btn-secondary" id="back4">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+                <button type="submit" class="btn btn-primary large-btn" id="generateBtn" disabled>
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Process Timetable
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Processing Modal Overlay (Hidden by default) -->
+    <style>
+        .p-edit-btn { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 10px; font-size: 0.8rem; font-weight: 700; color: #475569; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .p-edit-btn:hover { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+        
+        .p-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .p-modal { background: #fff; border-radius: 20px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column; }
+        .p-modal-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; }
+        .p-modal-title { font-size: 1.25rem; font-weight: 800; color: #1e293b; margin: 0; }
+        .p-modal-close { background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; line-height: 1; transition: color 0.2s; }
+        .p-modal-close:hover { color: #dc2626; }
+        .p-modal-body { padding: 24px; }
+        .p-modal-foot { padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; }
+        
+        @keyframes proc-pulse {
+
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(67, 56, 202, 0.4); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(67, 56, 202, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(67, 56, 202, 0); }
+        }
+        @keyframes proc-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .proc-step-container {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            position: relative;
+        }
+        /* Connecting line */
+        .proc-step-container:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 28px;
+            bottom: -20px;
+            width: 2px;
+            background: #d1d5db;
+            z-index: 1;
+            transition: background 0.3s ease;
+        }
+        .proc-step-container.completed:not(:last-child)::after {
+            background: #4338ca;
+        }
+        .proc-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid #d1d5db;
+            background: #e7e4dc;
+            flex-shrink: 0;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        .proc-text {
+            color: #6b7280;
+            font-weight: 400;
+            font-size: 1.05rem;
+            transition: all 0.3s ease;
+        }
+        /* Active State */
+        .proc-step-container.active .proc-indicator {
+            border-color: #4338ca;
+            background: transparent;
+            animation: proc-pulse 2s infinite;
+        }
+        .proc-step-container.active .proc-indicator::after {
+            content: '';
+            box-sizing: border-box;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #4338ca;
+            border-top-color: transparent;
+            animation: proc-spin 1s linear infinite;
+        }
+        .proc-step-container.active .proc-text {
+            color: #4338ca;
+            font-weight: 600;
+        }
+        /* Completed State */
+        .proc-step-container.completed .proc-indicator {
+            border-color: #4338ca;
+            background: #4338ca;
+            animation: none;
+        }
+        .proc-step-container.completed .proc-indicator::before {
+            content: '✓';
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .proc-step-container.completed .proc-text {
+            color: #374151;
+            font-weight: 500;
+        }
+    </style>
+    <div id="processingModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+        <div class="processing-modal" style="background: #e7e4dc; border-radius: 20px; padding: 40px; max-width: 600px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-family: 'Inter', sans-serif;">
+            <div class="processing-badge" style="display: inline-block; background: #eef2ff; color: #4338ca; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; margin-bottom: 20px;">
+                <i class="fa-solid fa-circle-notch fa-spin" style="margin-right: 6px;"></i> Processing timetable
+            </div>
+            <h2 style="font-size: 1.8rem; color: #111827; margin-top: 0; margin-bottom: 15px; font-weight: 700;">Hang tight while we process your upload</h2>
+            <p style="color: #6b7280; margin-bottom: 35px; font-size: 1.05rem;">This may take a moment depending on your timetable files.</p>
+            
+            <div class="processing-steps" style="display: flex; flex-direction: column; gap: 28px; margin-bottom: 35px; margin-left: 5px;">
+                <div class="proc-step-container active" id="procStep1">
+                    <div class="proc-indicator"></div>
+                    <span class="proc-text">Uploading your files</span>
+                </div>
+                <div class="proc-step-container" id="procStep2">
+                    <div class="proc-indicator"></div>
+                    <span class="proc-text">Extracting classes, modules, and schedules</span>
+                </div>
+                <div class="proc-step-container" id="procStep3">
+                    <div class="proc-indicator"></div>
+                    <span class="proc-text">Saving your study plan preferences</span>
+                </div>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 0.95rem; margin-bottom: 0;"><i class="fa-solid fa-info-circle" style="margin-right: 4px;"></i> The page will update automatically when processing is complete.</p>
+        </div>
+    </div>
+
+</section>
+    </div>
+
+    <!-- Modals for Partial Edits -->
+    <!-- 1. Edit Preferences -->
+    <div class="p-modal-overlay" id="modal-preferences">
+        <div class="p-modal">
+            <div class="p-modal-head">
+                <h3 class="p-modal-title">Edit Study Style</h3>
+                <button class="p-modal-close" onclick="closeModal('modal-preferences')">&times;</button>
+            </div>
+            <form action="{{ url_for('upload.update_preferences') }}" method="POST">
+                <div class="p-modal-body">
+                    <div class="two-col" style="margin-bottom:14px;">
+                        <div class="form-group">
+                            <label class="field-label">Semester Start</label>
+                            <input type="date" name="semester_start_date" class="form-input" value="{{ existing_preferences.semester_start_date if existing_preferences else '' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="field-label">Semester End</label>
+                            <input type="date" name="semester_end_date" class="form-input" value="{{ existing_preferences.semester_end_date if existing_preferences else '' }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="field-label">Study Intensity</label>
+                        <select name="study_intensity" class="form-input" required>
+                            <option value="relaxed" {% if existing_preferences and existing_preferences.study_intensity == 'relaxed' %}selected{% endif %}>Relaxed (~10–15 hrs/w)</option>
+                            <option value="balanced" {% if existing_preferences and existing_preferences.study_intensity == 'balanced' %}selected{% endif %}>Balanced (~16–25 hrs/w)</option>
+                            <option value="focused" {% if existing_preferences and existing_preferences.study_intensity == 'focused' %}selected{% endif %}>Focused (~26–35 hrs/w)</option>
+                            <option value="intensive" {% if existing_preferences and existing_preferences.study_intensity == 'intensive' %}selected{% endif %}>Intensive (~36+ hrs/w)</option>
+                        </select>
+                    </div>
+                    <div class="two-col" style="margin-bottom:14px;">
+                        <div class="form-group">
+                            <label class="field-label">Preferred Study Time</label>
+                            <select name="preferred_study_time" class="form-input" required>
+                                <option value="Morning" {% if existing_preferences and existing_preferences.preferred_study_time == 'Morning' %}selected{% endif %}>Morning</option>
+                                <option value="Afternoon" {% if existing_preferences and existing_preferences.preferred_study_time == 'Afternoon' %}selected{% endif %}>Afternoon</option>
+                                <option value="Night" {% if existing_preferences and existing_preferences.preferred_study_time == 'Night' %}selected{% endif %}>Night</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="field-label">Session Length</label>
+                            <select name="session_length" class="form-input" required>
+                                <option value="25" {% if existing_preferences and existing_preferences.session_length == '25' %}selected{% endif %}>25 min</option>
+                                <option value="45" {% if existing_preferences and existing_preferences.session_length == '45' %}selected{% endif %}>45 min</option>
+                                <option value="60" {% if existing_preferences and existing_preferences.session_length == '60' %}selected{% endif %}>60 min</option>
+                                <option value="90" {% if existing_preferences and existing_preferences.session_length == '90' %}selected{% endif %}>90 min</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="field-label">Break Preference</label>
+                        <select name="break_preference" class="form-input" required>
+                            <option value="short" {% if existing_preferences and existing_preferences.break_preference == 'short' %}selected{% endif %}>Short (5 min)</option>
+                            <option value="medium" {% if existing_preferences and existing_preferences.break_preference == 'medium' %}selected{% endif %}>Medium (10-15 min)</option>
+                            <option value="long" {% if existing_preferences and existing_preferences.break_preference == 'long' %}selected{% endif %}>Long (20-30 min)</option>
+                        </select>
+                    </div>
+                    </div>
+                <div class="p-modal-foot">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-preferences')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. Edit Commitments -->
+    <div class="p-modal-overlay" id="modal-commitments">
+        <div class="p-modal">
+            <div class="p-modal-head">
+                <h3 class="p-modal-title">Edit Recurring Commitments</h3>
+                <button class="p-modal-close" onclick="closeModal('modal-commitments')">&times;</button>
+            </div>
+            <form action="{{ url_for('upload.update_commitments') }}" method="POST" id="form-commitments">
+                <div class="p-modal-body">
+                    <div class="occupied-list" id="modalOccupiedList"></div>
+                    <div class="card add-block-card" style="padding:15px; margin-top:15px; border:1px dashed #cbd5e1; box-shadow:none;">
+                        <p class="field-label" style="margin-bottom:10px;">Add New Block</p>
+                        <div class="two-col" style="margin-bottom:10px;">
+                            <input type="text" id="m_ot_title" class="form-input" placeholder="Title">
+                            <select id="m_ot_category" class="form-input">
+                                <option value="Work">Work</option>
+                                <option value="CCA">CCA / Club</option>
+                                <option value="Exercise">Exercise / Gym</option>
+                                <option value="Family">Family</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="three-col" style="margin-bottom:10px;">
+                            <select id="m_ot_day" class="form-input">
+                                <option value="Monday">Monday</option><option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option><option value="Saturday">Saturday</option>
+                                <option value="Sunday">Sunday</option>
+                            </select>
+                            <input type="time" id="m_ot_start" class="form-input">
+                            <input type="time" id="m_ot_end" class="form-input">
+                        </div>
+                        <input type="text" id="m_ot_notes" class="form-input" placeholder="Optional notes" style="margin-bottom:10px;">
+                        <button type="button" class="btn btn-secondary" id="m_addOccupiedBtn" style="width:100%;">+ Add Commitment</button>
+                    </div>
+                    <div id="m_hiddenOccupiedFields"></div>
+                </div>
+                <div class="p-modal-foot">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-commitments')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" onclick="rebuildModalOccupiedHidden()">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3. Edit Study Apps -->
+    <div class="p-modal-overlay" id="modal-apps">
+        <div class="p-modal">
+            <div class="p-modal-head">
+                <h3 class="p-modal-title">Edit Study Apps</h3>
+                <button class="p-modal-close" onclick="closeModal('modal-apps')">&times;</button>
+            </div>
+            <form action="{{ url_for('upload.update_apps') }}" method="POST" id="form-apps">
+                <div class="p-modal-body">
+                    <div class="selected-apps-tray" id="modalAppTray"></div>
+                    <label id="m_studyAppError" style="color:var(--danger); font-size:0.8rem; font-weight:600; display:block; margin-bottom:10px;"></label>
+                    <div class="card add-block-card" style="padding:15px; margin-top:15px; border:1px dashed #cbd5e1; box-shadow:none;">
+                        <p class="field-label" style="margin-bottom:10px;">Quick Add by Category</p>
+                        <!-- Quick Add Apps Accordion -->
+                        <div class="acc-section">
+                            <div class="acc-header open" data-acc="100">
+                                <span>📚 Study Apps</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                            </div>
+                            <div class="acc-body open">
+                                <div class="acc-chips">
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Notion"     data-type="both"    data-identifier="notion.so"      data-purpose="notes and planning"><span>Notion</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Evernote"   data-type="both"    data-identifier="evernote.com"   data-purpose="note-taking"><span>Evernote</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="OneNote"    data-type="both"    data-identifier="onenote.exe"    data-purpose="note-taking"><span>OneNote</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Notability" data-type="desktop" data-identifier="Notability.exe" data-purpose="note-taking"><span>Notability</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Obsidian"   data-type="desktop" data-identifier="Obsidian.exe"   data-purpose="knowledge management"><span>Obsidian</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="acc-section">
+                            <div class="acc-header" data-acc="101">
+                                <span>🤖 AI Tools</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                            </div>
+                            <div class="acc-body">
+                                <div class="acc-chips">
+                                    <label class="m-app-chip"><input type="checkbox" data-name="ChatGPT"   data-type="website" data-identifier="chatgpt.com"          data-purpose="AI assistance"><span>ChatGPT</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Claude"    data-type="website" data-identifier="claude.ai"             data-purpose="AI assistance"><span>Claude</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Gemini"    data-type="website" data-identifier="gemini.google.com"     data-purpose="AI assistance"><span>Gemini</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="DeepSeek"  data-type="website" data-identifier="deepseek.com"          data-purpose="AI assistance"><span>DeepSeek</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Copilot"   data-type="website" data-identifier="copilot.microsoft.com" data-purpose="AI assistance"><span>Copilot</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Grammarly" data-type="both"    data-identifier="grammarly.com"         data-purpose="grammar checking"><span>Grammarly</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Quillbot"  data-type="website" data-identifier="quillbot.com"          data-purpose="paraphrasing"><span>Quillbot</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="acc-section">
+                            <div class="acc-header" data-acc="102">
+                                <span>📂 Productivity</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                            </div>
+                            <div class="acc-body">
+                                <div class="acc-chips">
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Google Docs"  data-type="website" data-identifier="docs.google.com"  data-purpose="writing reports"><span>Google Docs</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Google Drive" data-type="website" data-identifier="drive.google.com" data-purpose="file storage"><span>Google Drive</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Word"         data-type="desktop" data-identifier="WINWORD.EXE"      data-purpose="assignment writing"><span>Word</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Excel"        data-type="desktop" data-identifier="EXCEL.EXE"        data-purpose="data analysis"><span>Excel</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="PowerPoint"   data-type="desktop" data-identifier="POWERPNT.EXE"     data-purpose="presentations"><span>PowerPoint</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="MyStudyLife"  data-type="website" data-identifier="mystudylife.com"  data-purpose="schedule planning"><span>MyStudyLife</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="acc-section">
+                            <div class="acc-header" data-acc="103">
+                                <span>🔁 Flashcards</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                            </div>
+                            <div class="acc-body">
+                                <div class="acc-chips">
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Anki"      data-type="desktop" data-identifier="anki.exe"      data-purpose="flashcard studying"><span>Anki</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Quizlet"   data-type="website" data-identifier="quizlet.com"   data-purpose="flashcard studying"><span>Quizlet</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="StudyBlue" data-type="website" data-identifier="studyblue.com" data-purpose="flashcard studying"><span>StudyBlue</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="acc-section">
+                            <div class="acc-header" data-acc="104">
+                                <span>🌐 Learning</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                            </div>
+                            <div class="acc-body">
+                                <div class="acc-chips">
+                                    <label class="m-app-chip"><input type="checkbox" data-name="YouTube"        data-type="website" data-identifier="youtube.com"        data-purpose="video learning"><span>YouTube</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Coursera"       data-type="website" data-identifier="coursera.org"       data-purpose="online courses"><span>Coursera</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="edX"            data-type="website" data-identifier="edx.org"            data-purpose="online courses"><span>edX</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Khan Academy"   data-type="website" data-identifier="khanacademy.org"    data-purpose="learning concepts"><span>Khan Academy</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Chegg"          data-type="website" data-identifier="chegg.com"          data-purpose="homework help"><span>Chegg</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="CourseHero"     data-type="website" data-identifier="coursehero.com"     data-purpose="study resources"><span>CourseHero</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Google Scholar" data-type="website" data-identifier="scholar.google.com" data-purpose="academic research"><span>Google Scholar</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="acc-section">
+                            <div class="acc-header" data-acc="105">
+                                <span>💻 Programming</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                            </div>
+                            <div class="acc-body">
+                                <div class="acc-chips">
+                                    <label class="m-app-chip"><input type="checkbox" data-name="VS Code"        data-type="desktop" data-identifier="Code.exe"          data-purpose="coding"><span>VS Code</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="GitHub"         data-type="website" data-identifier="github.com"        data-purpose="version control"><span>GitHub</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Stack Overflow" data-type="website" data-identifier="stackoverflow.com" data-purpose="coding help"><span>Stack Overflow</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Replit"         data-type="website" data-identifier="replit.com"        data-purpose="coding practice"><span>Replit</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="LeetCode"       data-type="website" data-identifier="leetcode.com"      data-purpose="coding problems"><span>LeetCode</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="acc-section">
+                            <div class="acc-header" data-acc="106">
+                                <span>🌍 Language</span><i class="fa-solid fa-chevron-down acc-chevron"></i>
+                            </div>
+                            <div class="acc-body">
+                                <div class="acc-chips">
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Duolingo"         data-type="both"    data-identifier="duolingo.com"         data-purpose="language learning"><span>Duolingo</span></label>
+                                    <label class="m-app-chip"><input type="checkbox" data-name="Google Translate" data-type="website" data-identifier="translate.google.com" data-purpose="translation"><span>Google Translate</span></label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card add-block-card" style="padding:15px; margin-top:15px; border:1px dashed #cbd5e1; box-shadow:none;">
+                        <p class="field-label" style="margin-bottom:10px;">Add Manual App</p>
+                        <div class="two-col" style="margin-bottom:10px;">
+                            <input type="text" id="m_app_name" class="form-input" placeholder="Name">
+                            <input type="text" id="m_app_id" class="form-input" placeholder="Tracker Match (code.exe)">
+                        </div>
+                        <div class="two-col" style="margin-bottom:10px;">
+                            <select id="m_app_type" class="form-input">
+                                <option value="desktop">Desktop App</option>
+                                <option value="website">Website</option>
+                            </select>
+                            <input type="text" id="m_app_purpose" class="form-input" placeholder="Purpose">
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="m_addAppBtn" style="width:100%;">+ Add App</button>
+                    </div>
+                    <div id="m_hiddenAppFields"></div>
+                </div>
+                <div class="p-modal-foot">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-apps')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" onclick="rebuildModalAppHidden()">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='js/upload_wizard.js') }}"></script>
+<script>
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    
+    // Initial data injected from backend for the modals
+    let m_occupiedTimesStore = JSON.parse(`{{ occupied_times | tojson | safe if occupied_times else '[]' }}`);
+    let m_studyAppsStore = JSON.parse(`{{ existing_study_apps | tojson | safe if existing_study_apps else '[]' }}`);
+
+    function esc(str) { return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    // Commitments logic for modal
+    const m_occupiedList = document.getElementById('modalOccupiedList');
+    const m_hiddenOccupiedFields = document.getElementById('m_hiddenOccupiedFields');
+    function renderModalOccupied() {
+        m_occupiedList.innerHTML = '';
+        m_occupiedTimesStore.forEach((item, i) => {
+            const div = document.createElement('div');
+            div.className = 'occupied-item';
+            div.innerHTML = `<span class="occ-badge">${esc(item.category)}</span><span class="occ-title">${esc(item.title)}</span><span class="occ-time">${esc(item.day_of_week)}</span><button type="button" class="occ-del" onclick="m_removeOccupied(${i})">×</button>`;
+            m_occupiedList.appendChild(div);
+        });
+    }
+    function m_removeOccupied(i) { m_occupiedTimesStore.splice(i, 1); renderModalOccupied(); }
+    document.getElementById('m_addOccupiedBtn').addEventListener('click', () => {
+        const title=document.getElementById('m_ot_title').value;
+        const start=document.getElementById('m_ot_start').value;
+        const end=document.getElementById('m_ot_end').value;
+        if(title&&start&&end) {
+            m_occupiedTimesStore.push({
+                title: title, category: document.getElementById('m_ot_category').value,
+                day_of_week: document.getElementById('m_ot_day').value, start_time: start,
+                end_time: end, notes: document.getElementById('m_ot_notes').value
+            });
+            renderModalOccupied();
+            document.getElementById('m_ot_title').value=''; document.getElementById('m_ot_start').value=''; document.getElementById('m_ot_end').value='';
+        }
+    });
+    function rebuildModalOccupiedHidden() {
+        m_hiddenOccupiedFields.innerHTML = '';
+        m_occupiedTimesStore.forEach((item, i) => {
+            [['occupied_title_'+i,item.title],['occupied_category_'+i,item.category],
+             ['occupied_day_'+i,item.day_of_week],['occupied_start_'+i,item.start_time],
+             ['occupied_end_'+i,item.end_time],['occupied_notes_'+i,item.notes]].forEach(([n,v]) => {
+                const inp = document.createElement('input'); inp.type='hidden'; inp.name=n; inp.value=v??'';
+                m_hiddenOccupiedFields.appendChild(inp);
+            });
+        });
+        m_hiddenOccupiedFields.innerHTML += `<input type="hidden" name="occupied_count" value="${m_occupiedTimesStore.length}">`;
+    }
+
+    // Apps logic for modal
+    const m_appTray = document.getElementById('modalAppTray');
+    const m_hiddenAppFields = document.getElementById('m_hiddenAppFields');
+    function renderModalApps() {
+        m_appTray.innerHTML = '';
+        m_studyAppsStore.forEach((a, i) => {
+            const tag = document.createElement('div'); tag.className = 'sel-app-tag';
+            tag.innerHTML = `${esc(a.name)} <button type="button" class="tag-remove" onclick="m_removeApp(${i})">×</button>`;
+            m_appTray.appendChild(tag);
+        });
+    }
+    function m_removeApp(i) {
+        let identifier = (m_studyAppsStore[i].identifier || '').trim().toLowerCase();
+        m_studyAppsStore.splice(i, 1);
+        
+        // Uncheck the chip if present
+        document.querySelectorAll('.m-app-chip input[type="checkbox"]').forEach(cb => {
+            if ((cb.dataset.identifier||'').trim().toLowerCase() === identifier) {
+                cb.checked = false;
+                cb.closest('.m-app-chip').classList.remove('checked');
+            }
+        });
+        renderModalApps();
+    }
+    
+    // Wire up m-app-chip clicks
+    document.querySelectorAll('.m-app-chip').forEach(chip => {
+        chip.addEventListener('click', function(e) {
+            if(e.target.tagName === 'INPUT') return; // Prevent double trigger
+            
+            const err = document.getElementById('m_studyAppError');
+            err.textContent = '';
+            
+            const cb = this.querySelector('input[type="checkbox"]');
+            cb.checked = !cb.checked;
+            this.classList.toggle('checked', cb.checked);
+            
+            if (cb.checked) {
+                let name = cb.dataset.name, id = cb.dataset.identifier;
+                if (m_studyAppsStore.some(a => (a.identifier||'').trim().toLowerCase() === (id||'').trim().toLowerCase())) {
+                    err.textContent = `"${name}" is already in the list.`;
+                    cb.checked = false;
+                    this.classList.remove('checked');
+                    return;
+                }
+                m_studyAppsStore.push({ name: name, identifier: id, type: cb.dataset.type, purpose: cb.dataset.purpose });
+            } else {
+                let targetId = cb.dataset.identifier;
+                m_studyAppsStore = m_studyAppsStore.filter(a => (a.identifier||'').trim().toLowerCase() !== (targetId||'').trim().toLowerCase());
+            }
+            renderModalApps();
+        });
+    });
+
+    document.getElementById('m_addAppBtn').addEventListener('click', () => {
+        const name = document.getElementById('m_app_name').value;
+        const id = document.getElementById('m_app_id').value;
+        if(name&&id) {
+            m_studyAppsStore.push({ name: name, identifier: id, type: document.getElementById('m_app_type').value, purpose: document.getElementById('m_app_purpose').value });
+            renderModalApps();
+            document.getElementById('m_app_name').value=''; document.getElementById('m_app_id').value=''; document.getElementById('m_app_purpose').value='';
+        }
+    });
+    function rebuildModalAppHidden() {
+        m_hiddenAppFields.innerHTML = '';
+        m_studyAppsStore.forEach((a, i) => {
+            [['study_app_name_'+i,a.name],['study_app_type_'+i,a.type],
+             ['study_app_identifier_'+i,a.identifier],['study_app_purpose_'+i,a.purpose]].forEach(([n,v]) => {
+                const inp = document.createElement('input'); inp.type='hidden'; inp.name=n; inp.value=v??'';
+                m_hiddenAppFields.appendChild(inp);
+            });
+        });
+        m_hiddenAppFields.innerHTML += `<input type="hidden" name="study_app_count" value="${m_studyAppsStore.length}">`;
+    }
+
+    renderModalOccupied();
+    renderModalApps();
+
+    // Init pre-checked states for m-app-chips based on initially loaded data
+    function initModalChips() {
+        document.querySelectorAll('.m-app-chip input[type="checkbox"]').forEach(cb => {
+            let id = (cb.dataset.identifier||'').trim().toLowerCase();
+            if (m_studyAppsStore.some(a => (a.identifier||'').trim().toLowerCase() === id)) {
+                cb.checked = true;
+                cb.closest('.m-app-chip').classList.add('checked');
+            }
+        });
+    }
+    initModalChips();
+
+    // Close modal when clicking outside
+    document.querySelectorAll('.p-modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', e => { if(e.target === overlay) closeModal(overlay.id); });
+    });
+</script>
+{% endblock %}

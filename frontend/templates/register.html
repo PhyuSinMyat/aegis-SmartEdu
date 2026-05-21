@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Register - SmartEdu{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h1>Create Account</h1>
+        <p class="subtitle">Set up your SmartEdu account to get started</p>
+
+        <form method="POST" class="auth-form" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="username">Username</label>
+                {{ form.username(class="form-input", placeholder="Choose a username") }}
+                {% for error in form.username.errors %}
+                    <p class="error-text">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                {{ form.email(class="form-input", placeholder="Enter your email") }}
+                {% for error in form.email.errors %}
+                    <p class="error-text">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                {{ form.password(class="form-input", placeholder="Create a password") }}
+                {% for error in form.password.errors %}
+                    <p class="error-text">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                {{ form.confirm_password(class="form-input", placeholder="Re-enter your password") }}
+                {% for error in form.confirm_password.errors %}
+                    <p class="error-text">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="profile_pic">Profile Picture (Optional)</label>
+                <input
+                    id="profile_pic"
+                    name="profile_pic"
+                    type="file"
+                    class="register-upload-input"
+                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                >
+                <p class="helper-text">Accepted formats: PNG, JPG, JPEG, GIF, WEBP.</p>
+            </div>
+
+            {{ form.submit(class="btn btn-primary") }}
+        </form>
+
+        <p class="switch-link">
+            Already have an account?
+            <a href="{{ url_for('login') }}">Login here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

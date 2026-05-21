@@ -1,0 +1,176 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                      AUTOMATIC REPLANNING FLOW DIAGRAM                        ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  1. USER VISITS TRACKER PAGE                                                │
+│     GET /tracker                                                            │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  2. CHECK FOR MISSED SESSIONS                                               │
+│     _record_missed_slots(user_id)                                           │
+│                                                                             │
+│     • Fetch current week's study plan                                       │
+│     • Check today's scheduled slots                                         │
+│     • Identify slots that ended but weren't started                         │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+                                 ▼
+                          ┌─────────────┐
+                          │ Missed slot │
+                          │   found?    │
+                          └──────┬──────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │ YES                     │ NO → Exit
+                    ▼                         │
+┌─────────────────────────────────────────────┐
+│  3. CREATE INCOMPLETED SESSION              │
+│     db.insert_study_session(missed_data)    │
+│                                             │
+│     Status: "incompleted"                   │
+│     Study time: 0 seconds                   │
+│     Event: "Never started — laptop closed"  │
+└────────────────┬────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  4. AUTOMATIC REPLANNING TRIGGER                                            │
+│     _auto_replan_missed_session(session_id, user_id, missed_data, plan)     │
+│                                                                             │
+│     • Check if already replanned (avoid duplicates)                         │
+│     • Call replanning agent with current timetable and missed session       │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  5. AI AGENT EVALUATION                                                     │
+│     replanning_agent.evaluate_and_replan()                                  │
+│                                                                             │
+│   Step 1: Analyze Importance                                                │
+│   ┌─────────────────────────────────────────────────────────────────┐     │
+│   │ • Is it prep for upcoming class?                                │     │
+│   │ • Nearby assessment/deadline?                                   │     │
+│   │ • Core/foundational topic?                                      │     │
+│   │ • Or just general revision?                                     │     │
+│   └─────────────────────────────────────────────────────────────────┘     │
+│                                                                             │
+│   Step 2: Make Decision                                                     │
+│   ┌────────────────────────────────────────────────────────────────────┐  │
+│   │ HIGH PRIORITY → Reschedule to next available slot               │  │
+│   │ MEDIUM PRIORITY → Reschedule or merge with existing session       │  │
+│   │ LOW PRIORITY → Skip or push to later in week                      │  │
+│   └────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│   Step 3: Generate Patched Timetable                                        │
+│   • Minimal changes to schedule                                             │
+│   • Avoid overloading days                                                  │
+│   • Respect existing constraints                                            │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │                         │
+              ┌─────▼─────┐            ┌─────▼─────┐
+              │ RESCHEDULE│            │   SKIP    │
+              │ (is_rescheduled=true) │ (is_rescheduled=false)
+              └─────┬─────┘            └─────┬─────┘
+                    │                        │
+                    ▼                        ▼
+┌──────────────────────────────────┐  ┌────────────────────────────────┐
+│  6A. UPDATE STUDY PLAN           │  │  6B. LOG SKIP DECISION         │
+│      db.update_study_plan_       │  │      db.log_session_event()    │
+│      timetable()                 │  │                                │
+│                                  │  │      Event: "replanned"        │
+│  • Save patched timetable        │  │      Details: "[Auto] Skipped  │
+│  • Append note to plan_text      │  │      due to low priority"      │
+│  • Log event: "replanned"        │  │                                │
+└──────────────┬───────────────────┘  └────────────┬───────────────────┘
+               │                                   │
+               └───────────────┬───────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  7. STORE NOTIFICATION IN SESSION                                           │
+│     session["pending_replan_notification"] = {...}                          │
+│                                                                             │
+│     {                                                                       │
+│       "session_id": [ID],                                                   │
+│       "module": "EG2A11_AML",                                               │
+│       "explanation": "[AI's explanation]",                                  │
+│       "rescheduled": true/false                                             │
+│     }                                                                       │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  8. RENDER TRACKER PAGE                                                     │
+│     render_template("tracker.html", replan_notification=...)                │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  9. FRONTEND NOTIFICATION (JavaScript)                                      │
+│     • Check if replan_notification exists                                   │
+│     • Show desktop notification with AI's explanation                       │
+│     • Mark session as "Replanned" in history table                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                              NOTIFICATION EXAMPLES                            ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+Example 1: HIGH PRIORITY - Rescheduled
+┌────────────────────────────────────────────────────────────────┐
+│ 📅 Session Automatically Rescheduled                           │
+├────────────────────────────────────────────────────────────────┤
+│ EG2A11_AML: Session rescheduled to next available slot        │
+│ (Tomorrow 08:00-09:00) due to upcoming class preparation.     │
+└────────────────────────────────────────────────────────────────┘
+
+Example 2: LOW PRIORITY - Skipped
+┌────────────────────────────────────────────────────────────────┐
+│ ℹ️ Session Not Rescheduled                                     │
+├────────────────────────────────────────────────────────────────┤
+│ EG2A12_DPV: Skipped due to low priority — no nearby deadline  │
+│ and general revision can be done flexibly.                     │
+└────────────────────────────────────────────────────────────────┘
+
+Example 3: MEDIUM PRIORITY - Merged
+┌────────────────────────────────────────────────────────────────┐
+│ 📅 Session Automatically Rescheduled                           │
+├────────────────────────────────────────────────────────────────┤
+│ CS2024_DB: Merged with Thursday 16:00 slot to maintain focus  │
+│ without overloading your schedule.                             │
+└────────────────────────────────────────────────────────────────┘
+
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                          MANUAL OVERRIDE OPTION                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+The manual "Replan" button remains available for:
+
+• Sessions the AI decided NOT to reschedule
+• User disagrees with AI's decision
+• Want to force rescheduling after reviewing
+
+Session History Table:
+┌────────┬──────────────┬──────────────┬──────────┬──────────────────┐
+│ Date   │ Module       │ Study Time   │ Outcome  │ Actions          │
+├────────┼──────────────┼──────────────┼──────────┼──────────────────┤
+│ May-12 │ EG2A12_DPV   │ 00m 00s      │ ⛔ Incompleted │ 🔄 Replan  🗑️   │
+│        │              │              │          │                  │
+└────────┴──────────────┴──────────────┴──────────┴──────────────────┘
+         ↑ Click "Replan" to manually trigger if needed
+
+After auto-replanning:
+┌────────┬──────────────┬──────────────┬──────────┬──────────────────┐
+│ Date   │ Module       │ Study Time   │ Outcome  │ Actions          │
+├────────┼──────────────┼──────────────┼──────────┼──────────────────┤
+│ May-12 │ EG2A11_AML   │ 00m 00s      │ ⛔ Incompleted │ ✅ Replanned  🗑️ │
+│        │              │              │          │                  │
+└────────┴──────────────┴──────────────┴──────────┴──────────────────┘
+         ↑ Already processed, cannot replan again

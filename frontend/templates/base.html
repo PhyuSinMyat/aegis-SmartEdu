@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SmartEdu{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    {% set current_page = current_page|default('upload') %}
+    {% set is_auth_page = request.endpoint in ['login', 'register'] %}
+    {% set show_sidebar = session.get("user_id") and not hide_sidebar|default(false) and not is_auth_page %}
+    {% set show_navbar = not hide_navbar|default(false) and not is_auth_page %}
+
+    {% if show_sidebar %}
+    <aside class="sidebar">
+        <div class="sidebar-inner">
+            <div class="sidebar-logo">Aegis</div>
+
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('upload.upload') }}"
+                   class="sidebar-link {% if current_page == 'upload' %}active{% endif %}">
+                    <i class="fa-solid fa-upload"></i>
+                    <span>Upload</span>
+                </a>
+
+                <a href="{{ url_for('plan.plan_page') }}"
+                   class="sidebar-link {% if current_page == 'plan' %}active{% endif %}">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>Study Plan</span>
+                </a>
+
+                <a href="{{ url_for('tracker.tracker_page') }}"
+                   class="sidebar-link {% if current_page == 'tracker' %}active{% endif %}">
+                    <i class="fa-solid fa-stopwatch"></i>
+                    <span>Study Tracker</span>
+                </a>
+
+                <a href="{{ url_for('summary.daily_summary_page') }}"
+                   class="sidebar-link {% if current_page == 'daily_summary' %}active{% endif %}">
+                    <i class="fa-solid fa-book-open-reader"></i>
+                    <span>Daily Summary</span>
+                </a>
+
+                <a href="{{ url_for('reflection') }}"
+                   class="sidebar-link {% if current_page == 'reflection' %}active{% endif %}">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Reflection</span>
+                </a>
+
+                <a href="{{ url_for('assignment_checker.assignment_checker_page') }}"
+                   class="sidebar-link {% if current_page == 'assignment_checker' %}active{% endif %}">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    <span>Assignment Checker</span>
+                </a>
+
+                <a href="{{ url_for('settings') }}"
+                   class="sidebar-link {% if current_page == 'settings' %}active{% endif %}">
+                    <i class="fa-solid fa-gear"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+        </div>
+    </aside>
+    {% endif %}
+
+    <div class="{% if show_sidebar %}page-with-sidebar{% endif %}">
+        {% if show_navbar %}
+        <nav class="navbar">
+            {% if session.get('user_id') %}
+                <a class="nav-brand" href="{{ url_for('reflection') }}">SmartEdu</a>
+            {% else %}
+                <a class="nav-brand" href="{{ url_for('welcome') }}">SmartEdu</a>
+            {% endif %}
+            <div class="nav-actions">
+                {% if session.get("user_id") %}
+                    <div class="user-dropdown-container">
+                        <button class="user-dropdown-trigger" id="userDropdownBtn" aria-label="User menu" title="User menu">
+                            {% if current_user_avatar_url %}
+                                <img src="{{ current_user_avatar_url }}" alt="Profile picture" class="user-dropdown-avatar">
+                            {% else %}
+                                <i class="fa-regular fa-circle-user"></i>
+                            {% endif %}
+                            <i class="fa-solid fa-chevron-down user-dropdown-chevron"></i>
+                        </button>
+                        <div class="user-dropdown-menu" id="userDropdownMenu">
+                            <div class="user-dropdown-header">
+                                {% if current_user_avatar_url %}
+                                    <img src="{{ current_user_avatar_url }}" alt="Profile picture" class="user-dropdown-menu-avatar">
+                                {% else %}
+                                    <div class="user-dropdown-menu-avatar-placeholder">
+                                        {{ current_user_initials }}
+                                    </div>
+                                {% endif %}
+                                <div class="user-dropdown-info">
+                                    <p class="user-dropdown-username">{{ current_user.username if current_user else 'User' }}</p>
+                                    <p class="user-dropdown-email">{{ current_user.email if current_user else '' }}</p>
+                                </div>
+                            </div>
+                            <div class="user-dropdown-divider"></div>
+                            <a href="{{ url_for('settings') }}" class="user-dropdown-link">
+                                <i class="fa-solid fa-gear"></i>
+                                <span>Settings</span>
+                            </a>
+                            <a href="{{ url_for('logout') }}" class="user-dropdown-link">
+                                <i class="fa-solid fa-sign-out-alt"></i>
+                                <span>Logout</span>
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Login</a>
+                    <a href="{{ url_for('register') }}">Register</a>
+                {% endif %}
+            </div>
+        </nav>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-stack">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <main class="main-container">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const flashes = document.querySelectorAll(".flash-message");
+            flashes.forEach(function (flash) {
+                setTimeout(function () {
+                    flash.classList.add("is-hiding");
+                    setTimeout(function () {
+                        flash.remove();
+                    }, 400);
+                }, 3500);
+            });
+
+            // User dropdown menu functionality
+            const dropdownBtn = document.getElementById("userDropdownBtn");
+            const dropdownContainer = document.querySelector(".user-dropdown-container");
+            const dropdownMenu = document.getElementById("userDropdownMenu");
+
+            if (dropdownBtn && dropdownContainer) {
+                dropdownBtn.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    dropdownContainer.classList.toggle("open");
+                });
+
+                document.addEventListener("click", function (e) {
+                    if (!dropdownContainer.contains(e.target)) {
+                        dropdownContainer.classList.remove("open");
+                    }
+                });
+
+                const dropdownLinks = dropdownMenu.querySelectorAll(".user-dropdown-link");
+                dropdownLinks.forEach(function (link) {
+                    link.addEventListener("click", function () {
+                        dropdownContainer.classList.remove("open");
+                    });
+                });
+            }
+        });
+    </script>
+    {% if session.get("user_id") %}
+    {% include "coach_widget.html" %}
+    <script>
+        (async function connectSmartEduTray() {
+            const bridgeUrl = 'http://127.0.0.1:8765';
+            const currentUsername = {{ (session.get("username") or "")|tojson }};
+            const statusUrl = new URL(`${bridgeUrl}/status`);
+            statusUrl.searchParams.set('server_url', window.location.origin);
+            statusUrl.searchParams.set('username', currentUsername);
+            try {
+                const trayStatus = await fetch(statusUrl.toString(), {
+                    method: 'GET',
+                    cache: 'no-store',
+                });
+                if (!trayStatus.ok) return;
+                const trayData = await trayStatus.json();
+                if (trayData.connected_to_current) return;
+            } catch {
+                return;
+            }
+
+            try {
+                const tokenResp = await fetch('/tracker/desktop-bridge-token', { cache: 'no-store' });
+                if (!tokenResp.ok) return;
+                const data = await tokenResp.json();
+                if (!data.ok || !data.token) return;
+
+                await fetch(`${bridgeUrl}/connect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: data.token,
+                        server_url: data.server_url,
+                        username: data.username,
+                    }),
+                });
+            } catch {}
+        })();
+    </script>
+    {% endif %}
+</body>
+</html>
